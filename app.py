@@ -929,8 +929,8 @@ def main():
     st.subheader("Medlemstyper – fordelt på puljer")
 
     if seats_df is not None and not seats_df.empty:
-        seats_df["Kategori"] = seats_df["Medlemstype"].apply(categorize_member_type)
-        member_counts = compute_membertype_pie(seats_df)
+    seats_df["Kategori"] = seats_df["Medlemstype"].apply(categorize_member_type)
+    member_counts = compute_membertype_pie(seats_df)
 
     if not member_counts.empty:
         fig = px.pie(
@@ -943,8 +943,10 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.write("Ingen medlemstyper registreret.")
-    else:
-        st.write("Ingen medlemsdata indlæst.")
+
+else:
+    st.write("Ingen medlemsdata indlæst.")
+
 
 
 
