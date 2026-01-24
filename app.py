@@ -656,6 +656,14 @@ def main():
     # FILTRÉR MØDER PÅ PERIODE
     # -----------------------------------------------------
     meetings_period_df = filter_meetings_by_period(meetings_df, start_dt, end_dt)
+        # DEBUG BLOCK 1 – rå møder i perioden
+        st.subheader("DEBUG – rå møder i perioden")
+        st.write("Antal møder i perioden (før filtrering):", len(meetings_period_df))
+
+        st.write("Antal møder pr. gruppe (før filtrering):")
+        st.dataframe(
+        meetings_period_df.groupby("Gruppenavn").size().reset_index(name="Antal møder")
+        )
 
     if meetings_period_df.empty:
         st.warning("Ingen møder i den valgte periode.")
@@ -681,6 +689,9 @@ def main():
     ].assign(Fjernelsesårsag="Efter arkiveringsdato")
     removed_meetings.append(removed_after_archiving)
     meetings_period_df = tmp
+        # DEBUG BLOCK 2 – møder efter arkiveringsfilter
+        st.subheader("DEBUG – møder efter arkiveringsfilter")
+        st.write("Antal møder tilbage efter arkivering:", len(meetings_period_df))
 
     removed_meetings_df = (
         pd.concat(removed_meetings, ignore_index=True)
@@ -691,6 +702,10 @@ def main():
     # GODKENDTE MØDER
     # -----------------------------------------------------
     meetings_approved_df = filter_approved_meetings(meetings_period_df)
+        # DEBUG BLOCK 3 – godkendte møder
+        st.subheader("DEBUG – godkendte møder")
+        st.write("Antal godkendte møder:", len(meetings_approved_df))
+
 
     if meetings_approved_df.empty:
         st.warning("Ingen godkendte møder i perioden efter filtrering.")
