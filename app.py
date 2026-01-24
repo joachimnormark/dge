@@ -576,14 +576,14 @@ def compute_membertype_pie(df):
 
     df = df.copy()
 
-    # Lav ny kolonne med puljekategori
-    df["Kategori"] = df["Stillingsbetegnelse"].apply(categorize_member_type)
+    if "Kategori" not in df.columns:
+        return pd.DataFrame()
 
-    # Tæl pr. kategori
     counts = df["Kategori"].value_counts().reset_index()
     counts.columns = ["Kategori", "Antal"]
 
     return counts
+
 
 
 # ---------- PLOTTES ----------
@@ -926,32 +926,40 @@ def main():
     if member_types is not None and not member_types.empty:
         st.dataframe(member_types)
 
-    st.write("DEBUG – er vi stadig i main?")
-    st.write("DEBUG – seats_df columns:", seats_df.columns.tolist())
-    st.write("DEBUG – første 5 rækker:", seats_df.head())
+  # ---------- MEDLEMSTYPER – LAGKAGEDIAGRAM ----------
 
-    
     st.subheader("Medlemstyper – fordelt på puljer")
 
+    # Tjek at seats_df findes og har data
     if seats_df is not None and not seats_df.empty:
-        df["Kategori"] = df["Stillingsbetegnelse"].apply(categorize_member_type)
-        member_counts = compute_membertype_pie(seats_df)
 
-        if not member_counts.empty:
-            fig = px.pie(
-                member_counts,
-                names="Kategori",
-                values="Antal",
-                title="Fordeling af medlemstyper",
-                hole=0.0
-            )
-            st.plotly_chart(fig, use_container_width=True)
+        # Tjek at kolonnen findes
+        if "Stillingsbetegnelse" in seats_df.columns:
+
+            # Tilføj kategori-kolonne
+            seats_df["Kategori"] = seats_df["Stillingsbetegnelse"].apply(categorize_member_type)
+
+            # Beregn fordeling
+            member_counts = compute_membertype_pie(seats_df)
+
+            # Vis diagram
+            if not member_counts.empty:
+                fig = px.pie(
+                    member_counts,
+                    names="Kategori",
+                    values="Antal",
+                    title="Fordeling af medlemstyper",
+                    hole=0.0
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.write("Ingen medlemstyper registreret.")
+
         else:
-            st.write("Ingen medlemstyper registreret.")
+            st.error("Kolonnen 'Stillingsbetegnelse' findes ikke i medlemsdata.")
 
     else:
         st.write("Ingen medlemsdata indlæst.")
-
 
 
 
