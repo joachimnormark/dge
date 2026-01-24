@@ -558,7 +558,7 @@ def main():
         meetings_df = meetings_df[meetings_df["Region"].isin(selected_regions)]
         seats_df = seats_df[seats_df["Region"].isin(selected_regions)]
 
-       # Filtrér møder på periode
+# Filtrér møder på periode
     meetings_period_df = filter_by_period(meetings_df, start_dt, end_dt)
 
     # ⭐ Normalisér status
@@ -575,9 +575,9 @@ def main():
         meetings_period_df["Status"].isin(valid_status)
     ]
 
-if meetings_period_df is None or meetings_period_df.empty:
-    st.warning("Ingen møder i den valgte periode/region(er). Prøv at ændre periode eller region.")
-    return
+    if meetings_period_df is None or meetings_period_df.empty:
+        st.warning("Ingen møder i den valgte periode/region(er). Prøv at ændre periode eller region.")
+        return
 
 
     if meetings_period_df is None or meetings_period_df.empty:
