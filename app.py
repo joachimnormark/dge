@@ -610,7 +610,7 @@ def main():
     with col_b:
         st.metric("Antal kursusdeltagerdage i perioden", total_participant_days)
 
-    st.subheader("Godkendte møder fordelt på type")
+    st.subheader("Tabel 1: Godkendte møder fordelt på type")
     if not meetings_by_type.empty:
         st.bar_chart(meetings_by_type.set_index("Mødetype")["Antal møder"])
 
