@@ -746,6 +746,8 @@ def build_pdf_report(
 # ---------- STREAMLIT-APP ----------
 
 def main():
+    members_df = None
+
     st.title("DGE-rapportgenerator (Regioner, grupper og møder)")
 
     st.markdown(
