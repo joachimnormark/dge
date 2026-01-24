@@ -442,11 +442,7 @@ def build_pdf_report(
             pdf.savefig(fig)
             plt.close(fig)
 
-        # Side 5: Gruppestørrelse
-        if not group_size_dist.empty:
-            fig = plot_bar(group_size_dist, "Størrelseskategori", "Antal grupper", "Gruppestørrelse", rotation=0)
-            pdf.savefig(fig)
-            plt.close(fig)
+     
 
         # Side 6: Gruppestørrelse fordelt på gruppetype
         if not group_size_by_type.empty:
@@ -650,9 +646,7 @@ def main():
     if not meetings_per_group.empty:
         st.bar_chart(meetings_per_group.set_index("Mødekategori")["Antal grupper"])
 
-    st.subheader("Gruppestørrelse")
-    if not group_size_dist.empty:
-        st.bar_chart(group_size_dist.set_index("Størrelseskategori")["Antal grupper"])
+
 
     st.subheader("Tabel 4: Gruppestørrelse fordelt på gruppetype")
     if not group_size_by_type.empty:
