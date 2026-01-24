@@ -642,11 +642,11 @@ def main():
     if not meetings_by_type.empty:
         st.bar_chart(meetings_by_type.set_index("Mødetype")["Antal møder"])
 
-    st.subheader("Mødedeltagelse (antal deltagere pr. møde)")
+    st.subheader("Tabel 2: Mødedeltagelse (antal deltagere pr. møde)")
     if not meetings_by_participant_bins.empty:
         st.bar_chart(meetings_by_participant_bins.set_index("Deltagerkategori")["Antal møder"])
 
-    st.subheader("Gruppernes mødeaktivitet (antal møder pr. gruppe)")
+    st.subheader("Tabel 3: Gruppernes mødeaktivitet (antal møder pr. gruppe)")
     if not meetings_per_group.empty:
         st.bar_chart(meetings_per_group.set_index("Mødekategori")["Antal grupper"])
 
@@ -654,7 +654,7 @@ def main():
     if not group_size_dist.empty:
         st.bar_chart(group_size_dist.set_index("Størrelseskategori")["Antal grupper"])
 
-    st.subheader("Gruppestørrelse fordelt på gruppetype")
+    st.subheader("Tabel 4: Gruppestørrelse fordelt på gruppetype")
     if not group_size_by_type.empty:
         pivot = group_size_by_type.pivot(index="Størrelseskategori", columns="Gruppetyper", values="Antal grupper").fillna(0)
         st.bar_chart(pivot)
