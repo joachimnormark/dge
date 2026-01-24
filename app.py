@@ -926,6 +926,10 @@ def main():
     if member_types is not None and not member_types.empty:
         st.dataframe(member_types)
 
+    st.write("DEBUG – seats_df columns:", seats_df.columns.tolist())
+    st.write("DEBUG – første 5 rækker:", seats_df.head())
+
+    
     st.subheader("Medlemstyper – fordelt på puljer")
 
     if seats_df is not None and not seats_df.empty:
