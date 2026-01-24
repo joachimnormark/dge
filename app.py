@@ -577,7 +577,7 @@ def compute_membertype_pie(df):
     df = df.copy()
 
     # Lav ny kolonne med puljekategori
-    df["Kategori"] = df["Medlemstype"].apply(categorize_member_type)
+    df["Kategori"] = df["Stillingsbetegnelse"].apply(categorize_member_type)
 
     # Tæl pr. kategori
     counts = df["Kategori"].value_counts().reset_index()
