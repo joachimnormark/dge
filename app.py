@@ -943,8 +943,8 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.write("Ingen medlemstyper registreret.")
-else:
-    st.write("Ingen medlemsdata indlæst.")
+    else:
+        st.write("Ingen medlemsdata indlæst.")
 
 
 
