@@ -371,14 +371,24 @@ def compute_groups_without_meetings(groups_df, meetings_df, period_start, period
 
 
 
-def compute_closed_groups_this_year(groups_df, year):
+def compute_closed_groups_in_period(groups_df, period_start, period_end):
     if groups_df is None or groups_df.empty:
         return pd.DataFrame()
+
     df = groups_df.copy()
-    if "Dato for arkivering" not in df.columns:
-        return pd.DataFrame()
-    df["År for arkivering"] = df["Dato for arkivering"].dt.year
-    return df.loc[df["År for arkivering"] == year, ["Gruppenavn"]]
+
+    # Kun grupper der HAR en arkiveringsdato
+    df = df[df["Dato for arkivering"].notna()]
+
+    # Kun grupper der blev arkiveret i perioden
+    mask = (df["Dato for arkivering"] >= period_start) & (df["Dato for arkivering"] <= period_end)
+    df = df.loc[mask]
+
+    # Tilføj status
+    df["Status"] = "Inaktiv"
+
+    return df[["Gruppenavn", "Dato for arkivering", "Status"]]
+
 
 
 def compute_member_types(seats_df):
@@ -749,6 +759,8 @@ def main():
     member_types = compute_member_types(seats_df)
     groups_per_person = compute_groups_per_person(seats_df)
     groups_per_region_norm = compute_groups_per_region_per_100k(groups_df)
+    closed_groups = compute_closed_groups_in_period(groups_df, start_dt, end_dt)
+
 
     # ---------- VISUEL VISNING I APPEN ----------
 
@@ -792,8 +804,12 @@ def main():
         st.dataframe(groups_without_meetings)
 
     st.subheader(f"Grupper lukket i {start_date.year}")
+
     if closed_groups is not None and not closed_groups.empty:
         st.dataframe(closed_groups)
+    else:
+        st.write("Ingen grupper blev lukket i perioden.")
+
 
     st.subheader("Medlemstyper (stillingsbetegnelser)")
     if member_types is not None and not member_types.empty:
