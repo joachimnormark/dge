@@ -755,7 +755,7 @@ def main():
     meetings_by_weekday = compute_meetings_by_weekday(meetings_period_df)
     meeting_status = compute_meeting_status(meetings_period_all_status)
     groups_without_meetings = compute_groups_without_meetings(groups_df, meetings_df, start_dt, end_dt)
-    closed_groups = compute_closed_groups_this_year(groups_df, year=start_date.year)
+    closed_groups = compute_closed_groups_in_period(groups_df, start_dt, end_dt)
     member_types = compute_member_types(seats_df)
     groups_per_person = compute_groups_per_person(seats_df)
     groups_per_region_norm = compute_groups_per_region_per_100k(groups_df)
