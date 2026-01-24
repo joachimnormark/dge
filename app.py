@@ -609,6 +609,9 @@ def main():
     meetings_df = clean_meetings_df(meetings_df_raw)
     seats_df = clean_seats_df(seats_df_raw)
 
+    # ⭐ DEBUG: Se arkiveringsdatoer og gruppenavne
+    st.write("DEBUG – grupper og arkiveringsdatoer:", groups_df[["Gruppenavn", "Dato for arkivering"]])
+
     # Vælg periode
     st.subheader("Periodevalg")
     min_date = meetings_df["Starttidspunkt"].min()
