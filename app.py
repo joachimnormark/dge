@@ -87,6 +87,7 @@ def load_excel(uploaded_file):
 def clean_groups_df(df):
     if df is None:
         return None
+st.write("DEBUG – kolonner i groups_df:", groups_df.columns.tolist())
 
     df = df.copy()
 
