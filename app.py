@@ -104,15 +104,37 @@ def clean_groups_df(df):
 
     # ⭐ Dato for arkivering – robust parsing
     if "Dato for arkivering" in df.columns:
+
+        # Erstat '-' og tomme felter med NaN
         df["Dato for arkivering"] = df["Dato for arkivering"].replace(["-", ""], np.nan)
+
+        # Trim tekst
         df["Dato for arkivering"] = df["Dato for arkivering"].astype(str).str.strip()
 
+        # ⭐ Fjern "kl. HH:MM" hvis det findes
+        df["Dato for arkivering"] = df["Dato for arkivering"].str.replace(r",?\s*kl\.\s*\d{1,2}:\d{2}", "", regex=True)
+
+        # ⭐ Dansk månedstabel
+        month_map = {
+            "januar": "01", "februar": "02", "marts": "03", "april": "04",
+            "maj": "05", "juni": "06", "juli": "07", "august": "08",
+            "september": "09", "oktober": "10", "november": "11", "december": "12"
+        }
+
+        # ⭐ Konverter tekst-måneder til tal
+        for dk, num in month_map.items():
+            df["Dato for arkivering"] = df["Dato for arkivering"].str.replace(dk, num, regex=False)
+
+        # ⭐ Fjern punktum efter dag
+        df["Dato for arkivering"] = df["Dato for arkivering"].str.replace(".", "", regex=False)
+
+        # ⭐ Nu burde datoen være i formatet "24 05 2024"
         df["Dato for arkivering"] = pd.to_datetime(
             df["Dato for arkivering"],
-            format=None,
-            dayfirst=True,
+            format="%d %m %Y",
             errors="coerce"
         )
+
     else:
         df["Dato for arkivering"] = pd.NaT
 
@@ -121,6 +143,7 @@ def clean_groups_df(df):
         df["Antal medlemmer"] = pd.to_numeric(df["Antal medlemmer"], errors="coerce")
 
     return df
+
 
 
 
