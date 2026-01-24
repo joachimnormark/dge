@@ -155,9 +155,13 @@ def compute_group_size_by_type(groups_df):
 def compute_meetings_by_weekday(meetings_df):
     if meetings_df is None or meetings_df.empty:
         return pd.DataFrame()
+
     df = meetings_df.copy()
-    df["Ugedag"] = df["Starttidspunkt"].dt.day_name(locale="da_DK") if hasattr(df["Starttidspunkt"].dt, "day_name") else df["Starttidspunkt"].dt.day_name()
-    # Oversæt til dansk manuelt hvis nødvendigt
+
+    # Få engelske ugedage (virker altid)
+    df["Ugedag_eng"] = df["Starttidspunkt"].dt.day_name()
+
+    # Oversæt til dansk
     mapping = {
         "Monday": "Mandag",
         "Tuesday": "Tirsdag",
@@ -167,10 +171,15 @@ def compute_meetings_by_weekday(meetings_df):
         "Saturday": "Lørdag",
         "Sunday": "Søndag",
     }
-    df["Ugedag"] = df["Ugedag"].replace(mapping)
+
+    df["Ugedag"] = df["Ugedag_eng"].map(mapping)
+
+    # Rækkefølge
     order = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"]
-    grp = df.groupby("Ugedag").size().reindex(order).reset_index(name="Antal møder")
-    return grp
+
+    result = df.groupby("Ugedag").size().reindex(order).reset_index(name="Antal møder")
+    return result
+
 
 
 def compute_meeting_status(meetings_df):
