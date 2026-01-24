@@ -667,11 +667,11 @@ def main():
         pivot = group_size_by_type.pivot(index="Størrelseskategori", columns="Gruppetyper", values="Antal grupper").fillna(0)
         st.bar_chart(pivot)
 
-    st.subheader("Mødedage")
+    st.subheader("Tabel 5: Mødedage")
     if not meetings_by_weekday.empty:
         st.bar_chart(meetings_by_weekday.set_index("Ugedag")["Antal møder"])
 
-    st.subheader("Mødestatus")
+    st.subheader("Tabel 6: Mødestatus")
     if not meeting_status.empty:
         st.bar_chart(meeting_status.set_index("Status")["Antal møder"])
 
