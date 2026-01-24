@@ -803,7 +803,7 @@ def main():
     if groups_without_meetings is not None and not groups_without_meetings.empty:
         st.dataframe(groups_without_meetings)
 
-    st.subheader(f"Grupper lukket i {start_date.year}")
+    st.subheader(f"Grupper lukket i perioden")
 
     if closed_groups is not None and not closed_groups.empty:
         st.dataframe(closed_groups)
