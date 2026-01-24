@@ -803,11 +803,11 @@ def main():
     if not meeting_status.empty:
         st.bar_chart(meeting_status.set_index("Status")["Antal møder"])
 
-    st.subheader("Grupper uden godkendte møder i perioden")
+    st.subheader("Tabel 7: Grupper uden godkendte møder i perioden")
     if groups_without_meetings is not None and not groups_without_meetings.empty:
         st.dataframe(groups_without_meetings)
 
-    st.subheader(f"Grupper lukket i perioden")
+    st.subheader(f"Tabel 8: Grupper lukket i perioden")
 
     if closed_groups is not None and not closed_groups.empty:
         st.dataframe(closed_groups)
