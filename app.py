@@ -806,7 +806,7 @@ def main():
     # ⭐ Fjern gruppen "Gruppeledere" fra groups_df
     groups_df = groups_df[
         groups_df["Gruppenavn"].astype(str).str.strip().str.lower() != "gruppeledere"
-]
+    ]
 
 
 # Filtrér møder på periode
