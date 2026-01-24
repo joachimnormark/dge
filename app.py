@@ -283,18 +283,36 @@ def compute_meeting_status(meetings_df):
 def compute_groups_without_meetings(groups_df, meetings_df, period_start, period_end):
     if groups_df is None or groups_df.empty:
         return pd.DataFrame()
+
     df_g = groups_df.copy()
+
+    # ⭐ Kun grupper der var aktive i perioden
+    df_g = df_g[
+        df_g["Dato for arkivering"].isna() |
+        (df_g["Dato for arkivering"] >= period_start)
+    ]
+
+    # ⭐ Fjern Gruppeledere hvis ønsket
+    df_g = df_g[
+        df_g["Gruppenavn"].astype(str).str.strip().str.lower() != "gruppeledere"
+    ]
+
+    # Hvis der ingen møder er, returnér alle aktive grupper
     if meetings_df is None or meetings_df.empty:
-        # Så har ingen grupper møder i perioden
         return df_g[["Gruppenavn"]].copy()
 
     df_m = meetings_df.copy()
-    # Begræns til perioden
+
+    # Begræns møder til perioden
     mask = (df_m["Starttidspunkt"] >= period_start) & (df_m["Starttidspunkt"] <= period_end)
     df_m = df_m.loc[mask]
+
     groups_with_meetings = set(df_m["Gruppenavn"].dropna().unique().tolist())
+
     df_g["Har møde"] = df_g["Gruppenavn"].isin(groups_with_meetings)
+
     return df_g.loc[~df_g["Har møde"], ["Gruppenavn"]]
+
 
 
 def compute_closed_groups_this_year(groups_df, year):
