@@ -327,6 +327,44 @@ def compute_meeting_status(meetings_df):
 
     return result
 
+def compute_groups_with_few_meetings(groups_df, meetings_df, period_start, period_end, min_meetings=4):
+    if groups_df is None or groups_df.empty:
+        return pd.DataFrame()
+
+    df_g = groups_df.copy()
+
+    # Fjern grupper der var inaktive før perioden
+    df_g["Status"] = "Aktiv"
+    mask_before = df_g["Dato for arkivering"].notna() & (df_g["Dato for arkivering"] < period_start)
+    df_g.loc[mask_before, "Status"] = "Inaktiv før perioden"
+    df_g = df_g[df_g["Status"] != "Inaktiv før perioden"]
+
+    # Fjern Gruppeledere
+    df_g = df_g[df_g["Gruppenavn"].str.strip().str.lower() != "gruppeledere"]
+
+    # Hvis der ingen møder er, så har alle 0 møder
+    if meetings_df is None or meetings_df.empty:
+        df_g["Antal møder"] = 0
+        return df_g[df_g["Antal møder"] < min_meetings][["Gruppenavn", "Antal møder", "Status"]]
+
+    # Filtrér møder i perioden
+    df_m = meetings_df[
+        (meetings_df["Starttidspunkt"] >= period_start) &
+        (meetings_df["Starttidspunkt"] <= period_end)
+    ]
+
+    # Tæl møder pr. gruppe
+    mødetælling = df_m.groupby("Gruppenavn").size().reset_index(name="Antal møder")
+
+    # Merge med grupper
+    df = df_g.merge(mødetælling, on="Gruppenavn", how="left")
+
+    # Grupper uden møder får 0
+    df["Antal møder"] = df["Antal møder"].fillna(0).astype(int)
+
+    # Returnér dem med færre end 4 møder
+    return df[df["Antal møder"] < min_meetings][["Gruppenavn", "Antal møder", "Status"]]
+
 
 
 
@@ -764,6 +802,8 @@ def main():
     groups_per_person = compute_groups_per_person(seats_df)
     groups_per_region_norm = compute_groups_per_region_per_100k(groups_df)
     closed_groups = compute_closed_groups_in_period(groups_df, start_dt, end_dt)
+    few_meetings = compute_groups_with_few_meetings(groups_df, meetings_period_df, start_dt, end_dt)
+
 
 
     # ---------- VISUEL VISNING I APPEN ----------
@@ -807,6 +847,14 @@ def main():
     if groups_without_meetings is not None and not groups_without_meetings.empty:
         st.dataframe(groups_without_meetings)
 
+    st.subheader(f"Grupper med færre end 4 møder i {start_date.year}")
+
+    if few_meetings is not None and not few_meetings.empty:
+        st.dataframe(few_meetings)
+    else:
+        st.write("Alle grupper har afholdt mindst 4 møder i perioden.")
+
+    
     st.subheader(f"Tabel 8: Grupper lukket i perioden")
 
     if closed_groups is not None and not closed_groups.empty:
