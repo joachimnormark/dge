@@ -561,7 +561,7 @@ def main():
        # Filtrér møder på periode
     meetings_period_df = filter_by_period(meetings_df, start_dt, end_dt)
 
-    # ⭐ TING 1: Normalisér status
+    # ⭐ Normalisér status
     meetings_period_df["Status"] = (
         meetings_period_df["Status"]
         .astype(str)
@@ -569,15 +569,15 @@ def main():
         .str.lower()
     )
 
-    # ⭐ TING 2: Filtrér på status
-    valid_status = ["godkendt"]
+    # ⭐ Filtrér på status
+    valid_status = ["godkendt", "afvist", "afsluttet", ""]
     meetings_period_df = meetings_period_df[
         meetings_period_df["Status"].isin(valid_status)
     ]
 
-    if meetings_period_df is None or meetings_period_df.empty:
-        st.warning("Ingen møder i den valgte periode/region(er). Prøv at ændre periode eller region.")
-        return
+if meetings_period_df is None or meetings_period_df.empty:
+    st.warning("Ingen møder i den valgte periode/region(er). Prøv at ændre periode eller region.")
+    return
 
 
     if meetings_period_df is None or meetings_period_df.empty:
