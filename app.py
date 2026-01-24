@@ -87,9 +87,11 @@ def load_excel(uploaded_file):
 def clean_groups_df(df):
     if df is None:
         return None
-    st.write("DEBUG – kolonner i groups_df:", groups_df.columns.tolist())
 
     df = df.copy()
+
+    # ⭐ DEBUG: vis kolonnenavne i rå groups_df
+    st.write("DEBUG – kolonner i groups_df:", df.columns.tolist())
 
     # Standardiser kolonnenavne
     df.columns = [c.strip() for c in df.columns]
@@ -99,22 +101,26 @@ def clean_groups_df(df):
         # Erstat '-' og tomme felter med NaN
         df["Dato for arkivering"] = df["Dato for arkivering"].replace(["-", ""], np.nan)
 
-        # Først: trim tekst
+        # Trim tekst
         df["Dato for arkivering"] = df["Dato for arkivering"].astype(str).str.strip()
 
-        # ⭐ Brug pd.to_datetime direkte – langt mere robust end parse_date_series
+        # Robust parsing af danske datoformater
         df["Dato for arkivering"] = pd.to_datetime(
             df["Dato for arkivering"],
             format=None,        # lad pandas autodetektere formatet
             dayfirst=True,      # dansk datoformat
             errors="coerce"     # alt der ikke kan parses → NaT
         )
+    else:
+        # Hvis kolonnen slet ikke findes, opret den
+        df["Dato for arkivering"] = pd.NaT
 
     # Antal medlemmer til numerisk
     if "Antal medlemmer" in df.columns:
         df["Antal medlemmer"] = pd.to_numeric(df["Antal medlemmer"], errors="coerce")
 
     return df
+
 
 
 
