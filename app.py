@@ -87,17 +87,34 @@ def load_excel(uploaded_file):
 def clean_groups_df(df):
     if df is None:
         return None
+
     df = df.copy()
+
     # Standardiser kolonnenavne
     df.columns = [c.strip() for c in df.columns]
-    # Dato for arkivering kan være NaN eller '-'
+
+    # ⭐ Dato for arkivering – robust parsing
     if "Dato for arkivering" in df.columns:
-        df["Dato for arkivering"] = df["Dato for arkivering"].replace("-", np.nan)
-        df["Dato for arkivering"] = parse_date_series(df["Dato for arkivering"])
+        # Erstat '-' og tomme felter med NaN
+        df["Dato for arkivering"] = df["Dato for arkivering"].replace(["-", ""], np.nan)
+
+        # Først: trim tekst
+        df["Dato for arkivering"] = df["Dato for arkivering"].astype(str).str.strip()
+
+        # ⭐ Brug pd.to_datetime direkte – langt mere robust end parse_date_series
+        df["Dato for arkivering"] = pd.to_datetime(
+            df["Dato for arkivering"],
+            format=None,        # lad pandas autodetektere formatet
+            dayfirst=True,      # dansk datoformat
+            errors="coerce"     # alt der ikke kan parses → NaT
+        )
+
     # Antal medlemmer til numerisk
     if "Antal medlemmer" in df.columns:
         df["Antal medlemmer"] = pd.to_numeric(df["Antal medlemmer"], errors="coerce")
+
     return df
+
 
 
 def clean_meetings_df(df):
