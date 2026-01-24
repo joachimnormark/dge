@@ -847,7 +847,7 @@ def main():
     if groups_without_meetings is not None and not groups_without_meetings.empty:
         st.dataframe(groups_without_meetings)
 
-    st.subheader(f"Grupper med færre end 4 møder i {start_date.year}")
+    st.subheader(f"Grupper med færre end 4 møder i perioden")
 
     if few_meetings is not None and not few_meetings.empty:
         st.dataframe(few_meetings)
