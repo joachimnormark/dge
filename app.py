@@ -526,7 +526,64 @@ def compute_meetings_by_type_approved(meetings_df):
     result = result.rename(columns={"Mødetype_std": "Mødetype"})
 
     return result
+    
+    #HER ER DEFINITION TIL CIRKELDIAGRAM FOR ANSÆTTELSESTYPE
+def categorize_member_type(member_type):
+    if pd.isna(member_type) or str(member_type).strip() == "":
+        return "Ej registreret"
 
+    member_type = str(member_type).strip()
+
+    # 1: Praktiserende læger
+    if member_type == "Alment praktiserende læge":
+        return "Praktiserende læger"
+
+    # 2: §-ansatte, vikarer mv
+    speciallaege_types = [
+        "Ansat speciallæge i alm. med. - § 13, stk. 2",
+        "Ansat speciallæge i alm. med. - § 13, stk. 5",
+        "Ansat speciallæge i alm. med. - § 23, stk. 1",
+        "Ansat speciallæge i alm. med. - § 23, stk. 2",
+        "Ansat speciallæge i alm. med. - § 24",
+        "Ansat speciallæge i alm. med. - § 26",
+        "Assisterende speciallæge",
+        "Vikar i almen praksis",
+    ]
+    if member_type in speciallaege_types:
+        return "§-ansatte, vikarer mv"
+
+    # 3: Uddannelseslæger
+    udd_types = [
+        "Praksisamanuensis (Fase 1)",
+        "Praksisamanuensis (Fase 2)",
+        "Praksisamanuensis (Fase 3)",
+        "Introduktionsamanuensis (Almen Praksis)",
+        "KBU - Læge (trin 1)",
+        "Læge (trin 1)",
+        "Læge (trin 2)",
+        "Hoveduddannelsesstilling - Læge (trin 1)",
+        "Hoveduddannelsesstilling - Læge (trin 2)",
+    ]
+    if member_type in udd_types:
+        return "Uddannelseslæger"
+
+    # 5: Andre (alt der ikke matcher 1, 2, 3 eller er tomt)
+    return "Andre"
+
+def compute_membertype_pie(df):
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    df = df.copy()
+
+    # Lav ny kolonne med puljekategori
+    df["Kategori"] = df["Medlemstype"].apply(categorize_member_type)
+
+    # Tæl pr. kategori
+    counts = df["Kategori"].value_counts().reset_index()
+    counts.columns = ["Kategori", "Antal"]
+
+    return counts
 
 
 # ---------- PLOTTES ----------
@@ -866,6 +923,23 @@ def main():
     st.subheader("Medlemstyper (stillingsbetegnelser)")
     if member_types is not None and not member_types.empty:
         st.dataframe(member_types)
+
+    st.subheader("Medlemstyper – fordelt på puljer")
+
+    member_counts = compute_membertype_pie(members_df)
+
+    if not member_counts.empty:
+        fig = px.pie(
+            member_counts,
+            names="Kategori",
+            values="Antal",
+            title="Fordeling af medlemstyper",
+            hole=0.0  # 0.4 hvis du vil have donut
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.write("Ingen medlemstyper registreret.")
+
 
     st.subheader("Antal grupper man er medlem af")
     if groups_per_person is not None and not groups_per_person.empty:
