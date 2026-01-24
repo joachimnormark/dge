@@ -574,6 +574,7 @@ def main():
     meetings_period_df = meetings_period_df[
         meetings_period_df["Status"].isin(valid_status)
     ]
+    st.write("DEBUG – unikke mødetype-værdier:", sorted(meetings_period_df["Mødetype"].unique()))
 
     if meetings_period_df is None or meetings_period_df.empty:
         st.warning("Ingen møder i den valgte periode/region(er). Prøv at ændre periode eller region.")
