@@ -243,10 +243,41 @@ def compute_meetings_by_weekday(meetings_df):
 def compute_meeting_status(meetings_df):
     if meetings_df is None or meetings_df.empty:
         return pd.DataFrame()
+
     df = meetings_df.copy()
-    if "Status" not in df.columns:
-        df["Status"] = "Ukendt"
-    return df.groupby("Status").size().reset_index(name="Antal møder")
+
+    # Normalisér status
+    df["Status"] = (
+        df["Status"]
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+
+    # Blank status = tom streng
+    df.loc[df["Status"].isin(["nan", "none", ""]), "Status"] = ""
+
+    # Gruppér
+    result = df.groupby("Status").size().reset_index(name="Antal møder")
+
+    # Korrekt rækkefølge
+    order = ["godkendt", "afvist", "afsluttet", ""]
+
+    # Gør status til ordnet kategori
+    cat = pd.CategoricalDtype(order, ordered=True)
+    result["Status"] = result["Status"].astype(cat)
+
+    # Sortér
+    result = result.sort_values("Status")
+
+    # Sikr at alle statusser er med (også dem der ikke findes)
+    result = result.set_index("Status").reindex(order, fill_value=0).reset_index()
+
+    # Gør blank status pænere i tabellen
+    result.loc[result["Status"] == "", "Status"] = "Ingen status"
+
+    return result
+
 
 
 def compute_groups_without_meetings(groups_df, meetings_df, period_start, period_end):
