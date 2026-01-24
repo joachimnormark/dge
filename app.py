@@ -926,9 +926,9 @@ def main():
     if member_types is not None and not member_types.empty:
         st.dataframe(member_types)
 
-st.write("DEBUG – bruger vi seats_df eller members_df?")
-st.write("members_df:", type(members_df))
-st.write("seats_df:", type(seats_df))
+    st.write("DEBUG – bruger vi seats_df eller members_df?")
+    st.write("members_df:", type(members_df))
+    st.write("seats_df:", type(seats_df))
 
     
     # ---------- MEDLEMSTYPER – LAGKAGEDIAGRAM ----------
