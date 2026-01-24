@@ -227,8 +227,16 @@ def compute_meetings_by_weekday(meetings_df):
     # Rækkefølge
     order = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"]
 
-    result = df.groupby("Ugedag").size().reindex(order).reset_index(name="Antal møder")
+    # Gør Ugedag til ordnet kategori
+    cat = pd.CategoricalDtype(order, ordered=True)
+    df["Ugedag"] = df["Ugedag"].astype(cat)
+
+    # Gruppér og sortér
+    result = df.groupby("Ugedag").size().reset_index(name="Antal møder")
+    result = result.sort_values("Ugedag")
+
     return result
+
 
 
 
