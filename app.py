@@ -930,6 +930,8 @@ def main():
 
     st.subheader("Medlemstyper – fordelt på puljer")
 
+    member_counts = None  # ⭐ sikrer at variablen altid findes
+
     if seats_df is not None and not seats_df.empty:
 
         if "Stillingsbetegnelse" in seats_df.columns:
@@ -937,7 +939,7 @@ def main():
             seats_df["Kategori"] = seats_df["Stillingsbetegnelse"].apply(categorize_member_type)
             member_counts = compute_membertype_pie(seats_df)
 
-            if not member_counts.empty:
+            if member_counts is not None and not member_counts.empty:
                 fig = px.pie(
                     member_counts,
                     names="Kategori",
