@@ -667,14 +667,27 @@ def main():
     # Lav en version af grupper til gruppestatistik (uden frasorterede grupper)
     groups_for_stats = groups_df[~groups_df["Er_frasorteret_gruppe"]].copy()
 
-    # Filtrér møder på periode
-    meetings_period_df = filter_meetings_by_period(meetings_df, start_dt, end_dt)
+   # --- TRACKING AF FRASORTEREDE MØDER ---
+removed_meetings = []
 
-    # Fjern møder i frasorterede grupper
-    meetings_period_df = filter_meetings_by_excluded_groups(meetings_period_df, excluded_groups)
+# 1) Møder i frasorterede grupper
+mask_excluded_group = meetings_period_df["Gruppenavn"].isin(excluded_groups)
+removed_meetings.append(
+    meetings_period_df.loc[mask_excluded_group].assign(Fjernelsesårsag="Frasorteret gruppe")
+)
+meetings_period_df = meetings_period_df.loc[~mask_excluded_group]
 
-    # Håndter inaktive grupper ift. arkiveringsdato
-    meetings_period_df = filter_meetings_by_group_archiving(meetings_period_df, groups_df, start_dt)
+# 2) Møder efter arkiveringsdato
+tmp = filter_meetings_by_group_archiving(meetings_period_df, groups_df, start_dt)
+removed_after_archiving = meetings_period_df.loc[
+    ~meetings_period_df.index.isin(tmp.index)
+].assign(Fjernelsesårsag="Efter arkiveringsdato")
+removed_meetings.append(removed_after_archiving)
+meetings_period_df = tmp
+
+# Saml alt frasorteret
+removed_meetings_df = pd.concat(removed_meetings, ignore_index=True) if removed_meetings else pd.DataFrame()
+
 
     # Behold kun godkendte møder til de fleste statistikker
     meetings_approved_df = filter_approved_meetings(meetings_period_df)
@@ -792,6 +805,67 @@ def main():
         file_name="dge_rapport.pdf",
         mime="application/pdf",
     )
+
+def build_removed_meetings_pdf(removed_meetings_df):
+    """
+    Bygger en PDF med alle frasorterede møder.
+    Forventet kolonner:
+        - Gruppenavn
+        - Mødetitel
+        - Starttidspunkt
+        - Fjernelsesårsag
+    """
+    buf = io.BytesIO()
+    with PdfPages(buf) as pdf:
+
+        if removed_meetings_df is None or removed_meetings_df.empty:
+            fig, ax = plt.subplots(figsize=(8.27, 11.69))
+            ax.axis("off")
+            ax.text(0.05, 0.95, "Ingen frasorterede møder", fontsize=14)
+            pdf.savefig(fig)
+            plt.close(fig)
+            buf.seek(0)
+            return buf
+
+        # Start ny side
+        fig, ax = plt.subplots(figsize=(8.27, 11.69))
+        ax.axis("off")
+        ax.set_title("Frasorterede møder", loc="left", fontsize=14)
+
+        y = 0.92
+        for _, row in removed_meetings_df.iterrows():
+            line = (
+                f"- {row.get('Gruppenavn','?')} | "
+                f"{row.get('Mødetitel','?')} | "
+                f"{row.get('Starttidspunkt','?')} | "
+                f"Årsag: {row.get('Fjernelsesårsag','?')}"
+            )
+            ax.text(0.05, y, line, fontsize=8, va="top")
+            y -= 0.025
+
+            # Ny side hvis vi løber tør for plads
+            if y < 0.05:
+                pdf.savefig(fig)
+                plt.close(fig)
+                fig, ax = plt.subplots(figsize=(8.27, 11.69))
+                ax.axis("off")
+                y = 0.95
+
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    buf.seek(0)
+    return buf
+
+st.subheader("Download frasorterede møder (PDF)")
+removed_pdf = build_removed_meetings_pdf(removed_meetings_df)
+
+st.download_button(
+    label="Download PDF med frasorterede møder",
+    data=removed_pdf,
+    file_name="frasorterede_moeder.pdf",
+    mime="application/pdf",
+)
 
 
 if __name__ == "__main__":
