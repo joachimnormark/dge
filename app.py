@@ -21,7 +21,9 @@ REGION_POPULATION = {
     "Region Sjælland": 840000,
 }
 
-TEST_DEMO_PATTERNS = ["test", "demo"]  # bruges til at filtrere grupper/møder
+# Navne der skal sorteres fra
+EXCLUDED_EXACT_GROUP_NAMES = ["Gruppeledere"]
+EXCLUDED_NAME_SUBSTRINGS = ["test", "demo"]  # case-insensitive
 
 
 # ---------- HJÆLPEFUNKTIONER ----------
@@ -34,207 +36,112 @@ def parse_date_series(s):
 def load_excel(uploaded_file):
     if uploaded_file is None:
         return None
-    # engine behøver ikke angives, men kan hvis du vil:
-    # return pd.read_excel(uploaded_file, engine="openpyxl")
+    # Hvis du får openpyxl-fejl på Streamlit Cloud, så sørg for at
+    # 'openpyxl' står i requirements.txt
     return pd.read_excel(uploaded_file)
 
 
-def name_matches_test_demo(name: str) -> bool:
-    if not isinstance(name, str):
-        return False
-    lower = name.lower()
-    return any(p in lower for p in TEST_DEMO_PATTERNS)
-
-
-# ---------- RENSNING ----------
-
 def clean_groups_df(df):
-    """
-    Rens grupper:
-    - standardiser kolonnenavne
-    - parse datoer
-    - konverter 'Antal medlemmer'
-    - fjern grupper der hedder noget med 'test' eller 'demo'
-    - fjern gruppen 'Gruppeledere' fra al aktivitet
-    Returnerer (renset_df, fjernet_df)
-    """
     if df is None:
-        return None, pd.DataFrame()
-
+        return None
     df = df.copy()
+    # Standardiser kolonnenavne
     df.columns = [c.strip() for c in df.columns]
-
-    # Dato for arkivering
+    # Dato for arkivering kan være NaN eller '-'
     if "Dato for arkivering" in df.columns:
         df["Dato for arkivering"] = df["Dato for arkivering"].replace("-", np.nan)
         df["Dato for arkivering"] = parse_date_series(df["Dato for arkivering"])
-
-    # Antal medlemmer
+    # Antal medlemmer til numerisk
     if "Antal medlemmer" in df.columns:
         df["Antal medlemmer"] = pd.to_numeric(df["Antal medlemmer"], errors="coerce")
-
-    # Filtrering på navn
-    removed_rows = []
-
-    if "Gruppenavn" in df.columns:
-        mask_test_demo = df["Gruppenavn"].apply(name_matches_test_demo)
-        mask_gruppeledere = df["Gruppenavn"].astype(str).str.strip().eq("Gruppeledere")
-
-        removed = df[mask_test_demo | mask_gruppeledere].copy()
-        kept = df[~(mask_test_demo | mask_gruppeledere)].copy()
-
-        removed["Fjernelsesårsag"] = np.where(
-            mask_gruppeledere[mask_test_demo | mask_gruppeledere],
-            "Gruppeledere-gruppe",
-            "Test/demo-gruppe",
-        )
-        removed_rows.append(removed)
-    else:
-        kept = df
-        removed = pd.DataFrame()
-
-    removed_all = pd.concat(removed_rows, ignore_index=True) if removed_rows else pd.DataFrame()
-    return kept.reset_index(drop=True), removed_all.reset_index(drop=True)
+    return df
 
 
-def clean_meetings_df(df, valid_groups_df=None):
-    """
-    Rens møder:
-    - standardiser kolonnenavne
-    - parse datoer
-    - konverter 'Antal deltagere'
-    - fjern møder i grupper der hedder noget med 'test' eller 'demo'
-    - fjern møder i gruppen 'Gruppeledere'
-    - fjern møder hvor mødetitel indeholder 'test'/'demo'
-    - hvis valid_groups_df er givet, fjern møder for grupper der ikke findes dér
-    Returnerer (renset_df, fjernet_df)
-    """
+def clean_meetings_df(df):
     if df is None:
-        return None, pd.DataFrame()
-
+        return None
     df = df.copy()
     df.columns = [c.strip() for c in df.columns]
-
     # Datoer
     if "Starttidspunkt" in df.columns:
         df["Starttidspunkt"] = parse_date_series(df["Starttidspunkt"])
     if "Sluttidspunkt" in df.columns:
         df["Sluttidspunkt"] = parse_date_series(df["Sluttidspunkt"])
-
     # Antal deltagere
     if "Antal deltagere" in df.columns:
         df["Antal deltagere"] = (
-            pd.to_numeric(df["Antal deltagere"], errors="coerce").fillna(0).astype(int)
+            pd.to_numeric(df["Antal deltagere"], errors="coerce")
+            .fillna(0)
+            .astype(int)
         )
-
-    removed_parts = []
-
-    # Filtrering på gruppenavn og mødetitel
-    mask_remove = pd.Series(False, index=df.index)
-
-    if "Gruppenavn" in df.columns:
-        mask_test_demo_group = df["Gruppenavn"].apply(name_matches_test_demo)
-        mask_gruppeledere_group = df["Gruppenavn"].astype(str).str.strip().eq("Gruppeledere")
-        mask_remove |= mask_test_demo_group | mask_gruppeledere_group
-
-    if "Mødetitel" in df.columns:
-        mask_test_demo_title = df["Mødetitel"].apply(name_matches_test_demo)
-        mask_remove |= mask_test_demo_title
-    else:
-        mask_test_demo_title = pd.Series(False, index=df.index)
-
-    removed_named = df[mask_remove].copy()
-    if not removed_named.empty:
-        removed_named["Fjernelsesårsag"] = np.select(
-            [
-                "Gruppenavn" in df.columns
-                and df.loc[removed_named.index, "Gruppenavn"].astype(str).str.strip().eq("Gruppeledere"),
-                "Gruppenavn" in df.columns
-                and df.loc[removed_named.index, "Gruppenavn"].apply(name_matches_test_demo),
-                "Mødetitel" in df.columns
-                and df.loc[removed_named.index, "Mødetitel"].apply(name_matches_test_demo),
-            ],
-            [
-                "Møde i Gruppeledere-gruppe",
-                "Møde i test/demo-gruppe",
-                "Mødetitel indeholder test/demo",
-            ],
-            default="Filtreret møde",
-        )
-        removed_parts.append(removed_named)
-
-    kept = df[~mask_remove].copy()
-
-    # Fjern møder for grupper der ikke findes i valid_groups_df (hvis givet)
-    if valid_groups_df is not None and "Gruppenavn" in kept.columns and "Gruppenavn" in valid_groups_df.columns:
-        valid_names = set(valid_groups_df["Gruppenavn"].dropna().astype(str))
-        mask_invalid_group = ~kept["Gruppenavn"].astype(str).isin(valid_names)
-        removed_invalid = kept[mask_invalid_group].copy()
-        if not removed_invalid.empty:
-            removed_invalid["Fjernelsesårsag"] = "Gruppenavn findes ikke i renset gruppeliste"
-            removed_parts.append(removed_invalid)
-        kept = kept[~mask_invalid_group].copy()
-
-    removed_all = pd.concat(removed_parts, ignore_index=True) if removed_parts else pd.DataFrame()
-    return kept.reset_index(drop=True), removed_all.reset_index(drop=True)
+    return df
 
 
 def clean_seats_df(df):
-    """
-    Rens sæder/medlemmer:
-    - standardiser kolonnenavne
-    - konverter 'Antal møder'
-    - fjern brugere der er medlem af 'Gruppeledere' flere gange
-    - for de resterende: fjern 'Gruppeledere' fra Medlemskaber (aktivitet i gruppen skal ikke tælle)
-    - fjern også medlemskaber der hedder noget med 'test' eller 'demo'
-    Returnerer (renset_df, fjernet_df)
-    """
     if df is None:
-        return None, pd.DataFrame()
-
+        return None
     df = df.copy()
     df.columns = [c.strip() for c in df.columns]
-
+    # Antal møder
     if "Antal møder" in df.columns:
         df["Antal møder"] = (
-            pd.to_numeric(df["Antal møder"], errors="coerce").fillna(0).astype(int)
+            pd.to_numeric(df["Antal møder"], errors="coerce")
+            .fillna(0)
+            .astype(int)
         )
+    return df
 
-    if "Medlemskaber" not in df.columns:
-        return df.reset_index(drop=True), pd.DataFrame()
 
-    # Brugere med Gruppeledere flere gange
-    medlemskaber_str = df["Medlemskaber"].fillna("").astype(str)
-    gl_count = medlemskaber_str.str.count(r"\bGruppeledere\b")
-    mask_gl_multi = gl_count > 1
+def remove_test_and_group_leader_groups(groups_df, meetings_df):
+    """
+    Fjerner:
+      - grupper der hedder præcist 'Gruppeledere'
+      - grupper hvis navn indeholder 'test' eller 'demo' (case-insensitive)
+    fra både groups_df og meetings_df.
+    Returnerer (renset_groups, renset_meetings, fjernede_grupper).
+    """
+    if groups_df is None:
+        return groups_df, meetings_df, pd.DataFrame()
 
-    removed_gl_multi = df[mask_gl_multi].copy()
-    if not removed_gl_multi.empty:
-        removed_gl_multi["Fjernelsesårsag"] = "Medlem af Gruppeledere flere gange"
+    g = groups_df.copy()
+    if "Gruppenavn" not in g.columns:
+        return groups_df, meetings_df, pd.DataFrame()
 
-    kept = df[~mask_gl_multi].copy()
+    name_col = "Gruppenavn"
 
-    # Rens Medlemskaber for Gruppeledere og test/demo-grupper
-    def clean_memberships(s: str) -> str:
-        parts = [p.strip() for p in str(s).split(",") if p.strip() != ""]
-        cleaned = []
-        for p in parts:
-            if p == "Gruppeledere":
-                continue
-            if name_matches_test_demo(p):
-                continue
-            cleaned.append(p)
-        return ", ".join(cleaned)
+    # præcis 'Gruppeledere'
+    exact_mask = g[name_col].astype(str).str.strip().str.lower().isin(
+        [n.lower() for n in EXCLUDED_EXACT_GROUP_NAMES]
+    )
 
-    kept["Medlemskaber"] = kept["Medlemskaber"].fillna("").apply(clean_memberships)
+    # indeholder 'test' eller 'demo'
+    substr_pattern = "|".join(EXCLUDED_NAME_SUBSTRINGS)
+    substr_mask = g[name_col].astype(str).str.contains(
+        substr_pattern, case=False, na=False
+    )
 
-    return kept.reset_index(drop=True), removed_gl_multi.reset_index(drop=True)
+    drop_mask = exact_mask | substr_mask
+
+    removed_groups = g[drop_mask].copy()
+    kept_groups = g[~drop_mask].copy()
+
+    bad_names = removed_groups[name_col].dropna().unique()
+
+    if meetings_df is not None and "Gruppenavn" in meetings_df.columns:
+        m = meetings_df.copy()
+        kept_meetings = m[~m["Gruppenavn"].isin(bad_names)].copy()
+    else:
+        kept_meetings = meetings_df
+
+    return kept_groups, kept_meetings, removed_groups
 
 
 def filter_by_period(meetings_df, start_date, end_date):
     if meetings_df is None:
         return None
     df = meetings_df.copy()
+    if "Starttidspunkt" not in df.columns:
+        return df.iloc[0:0]
     mask = (df["Starttidspunkt"] >= start_date) & (df["Starttidspunkt"] <= end_date)
     return df.loc[mask].reset_index(drop=True)
 
@@ -252,8 +159,10 @@ def get_region_options(groups_df, meetings_df, seats_df):
 def compute_basic_stats(meetings_df):
     if meetings_df is None or meetings_df.empty:
         return 0, 0
-    total_meetings = len(meetings_df)
-    total_participant_days = meetings_df["Antal deltagere"].sum()
+    df = meetings_df.copy()
+    # her er de allerede filtreret til Status = "Godkendt" i main()
+    total_meetings = len(df)
+    total_participant_days = df["Antal deltagere"].sum()
     return total_meetings, total_participant_days
 
 
@@ -269,7 +178,9 @@ def compute_meetings_by_participant_bins(meetings_df):
     bins = [0, 4, 6, 8, 10, 12, 14, 99]
     labels = ["2-4", "5-6", "7-8", "9-10", "11-12", "13-14", "15-99"]
     df = meetings_df.copy()
-    df["Deltagerkategori"] = pd.cut(df["Antal deltagere"], bins=bins, labels=labels, right=True)
+    df["Deltagerkategori"] = pd.cut(
+        df["Antal deltagere"], bins=bins, labels=labels, right=True
+    )
     return df.groupby("Deltagerkategori").size().reset_index(name="Antal møder")
 
 
@@ -279,7 +190,9 @@ def compute_meetings_per_group(meetings_df):
     grp = meetings_df.groupby("Gruppenavn").size().reset_index(name="Antal møder")
     bins = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 1000]
     labels = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10+"]
-    grp["Mødekategori"] = pd.cut(grp["Antal møder"], bins=bins, labels=labels, right=True)
+    grp["Mødekategori"] = pd.cut(
+        grp["Antal møder"], bins=bins, labels=labels, right=True
+    )
     return grp.groupby("Mødekategori").size().reset_index(name="Antal grupper")
 
 
@@ -289,7 +202,9 @@ def compute_group_size_distribution(groups_df):
     df = groups_df.copy()
     bins = [0, 4, 6, 8, 10, 12, 14, 99]
     labels = ["1-4", "5-6", "7-8", "9-10", "11-12", "13-14", "15-99"]
-    df["Størrelseskategori"] = pd.cut(df["Antal medlemmer"], bins=bins, labels=labels, right=True)
+    df["Størrelseskategori"] = pd.cut(
+        df["Antal medlemmer"], bins=bins, labels=labels, right=True
+    )
     return df.groupby("Størrelseskategori").size().reset_index(name="Antal grupper")
 
 
@@ -299,10 +214,16 @@ def compute_group_size_by_type(groups_df):
     df = groups_df.copy()
     bins = [0, 4, 6, 8, 10, 12, 14, 99]
     labels = ["1-4", "5-6", "7-8", "9-10", "11-12", "13-14", "15-99"]
-    df["Størrelseskategori"] = pd.cut(df["Antal medlemmer"], bins=bins, labels=labels, right=True)
+    df["Størrelseskategori"] = pd.cut(
+        df["Antal medlemmer"], bins=bins, labels=labels, right=True
+    )
     if "Gruppetyper" not in df.columns:
         df["Gruppetyper"] = "Ukendt"
-    return df.groupby(["Størrelseskategori", "Gruppetyper"]).size().reset_index(name="Antal grupper")
+    return (
+        df.groupby(["Størrelseskategori", "Gruppetyper"])
+        .size()
+        .reset_index(name="Antal grupper")
+    )
 
 
 def compute_meetings_by_weekday(meetings_df):
@@ -311,9 +232,10 @@ def compute_meetings_by_weekday(meetings_df):
 
     df = meetings_df.copy()
 
-    # Engelske ugedage
+    # Få engelske ugedage (virker altid)
     df["Ugedag_eng"] = df["Starttidspunkt"].dt.day_name()
 
+    # Oversæt til dansk
     mapping = {
         "Monday": "Mandag",
         "Tuesday": "Tirsdag",
@@ -326,8 +248,15 @@ def compute_meetings_by_weekday(meetings_df):
 
     df["Ugedag"] = df["Ugedag_eng"].map(mapping)
 
+    # Rækkefølge
     order = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"]
-    result = df.groupby("Ugedag").size().reindex(order).reset_index(name="Antal møder")
+
+    result = (
+        df.groupby("Ugedag")
+        .size()
+        .reindex(order)
+        .reset_index(name="Antal møder")
+    )
     return result
 
 
@@ -345,12 +274,20 @@ def compute_groups_without_meetings(groups_df, meetings_df, period_start, period
         return pd.DataFrame()
     df_g = groups_df.copy()
     if meetings_df is None or meetings_df.empty:
+        # Så har ingen grupper møder i perioden
         return df_g[["Gruppenavn"]].copy()
 
     df_m = meetings_df.copy()
-    mask = (df_m["Starttidspunkt"] >= period_start) & (df_m["Starttidspunkt"] <= period_end)
+    # Begræns til perioden
+    if "Starttidspunkt" not in df_m.columns:
+        return df_g[["Gruppenavn"]].copy()
+    mask = (df_m["Starttidspunkt"] >= period_start) & (
+        df_m["Starttidspunkt"] <= period_end
+    )
     df_m = df_m.loc[mask]
-    groups_with_meetings = set(df_m["Gruppenavn"].dropna().unique().tolist())
+    groups_with_meetings = set(
+        df_m["Gruppenavn"].dropna().unique().tolist()
+    )
     df_g["Har møde"] = df_g["Gruppenavn"].isin(groups_with_meetings)
     return df_g.loc[~df_g["Har møde"], ["Gruppenavn"]]
 
@@ -380,12 +317,10 @@ def compute_groups_per_person(seats_df):
     df = seats_df.copy()
     if "Medlemskaber" not in df.columns:
         return pd.DataFrame()
-
-    def count_groups(s: str) -> int:
-        parts = [p.strip() for p in str(s).split(",") if p.strip() != ""]
-        return len(parts)
-
-    df["Antal grupper"] = df["Medlemskaber"].fillna("").apply(count_groups)
+    # Antal grupper = antal komma-separerede elementer
+    df["Antal grupper"] = df["Medlemskaber"].fillna("").apply(
+        lambda x: len([g for g in str(x).split(",") if g.strip() != ""])
+    )
     return df.groupby("Antal grupper").size().reset_index(name="Antal personer")
 
 
@@ -397,7 +332,9 @@ def compute_groups_per_region_per_100k(groups_df):
         return pd.DataFrame()
     grp = df.groupby("Region").size().reset_index(name="Antal grupper")
     grp["Befolkning"] = grp["Region"].map(REGION_POPULATION).fillna(np.nan)
-    grp["Grupper pr. 100.000 borgere"] = grp["Antal grupper"] / grp["Befolkning"] * 100000
+    grp["Grupper pr. 100.000 borgere"] = (
+        grp["Antal grupper"] / grp["Befolkning"] * 100000
+    )
     return grp
 
 
@@ -417,7 +354,11 @@ def plot_bar(df, x_col, y_col, title, rotation=0):
 def plot_stacked_group_size_by_type(df):
     if df.empty:
         return None
-    pivot = df.pivot(index="Størrelseskategori", columns="Gruppetyper", values="Antal grupper").fillna(0)
+    pivot = df.pivot(
+        index="Størrelseskategori",
+        columns="Gruppetyper",
+        values="Antal grupper",
+    ).fillna(0)
     fig, ax = plt.subplots(figsize=(7, 4))
     pivot.plot(kind="bar", stacked=True, ax=ax)
     ax.set_title("Gruppestørrelse fordelt på gruppetype")
@@ -463,7 +404,13 @@ def build_pdf_report(
 
         # Side 2: Møder fordelt på type
         if not meetings_by_type.empty:
-            fig = plot_bar(meetings_by_type, "Mødetype", "Antal møder", "Møder fordelt på type", rotation=45)
+            fig = plot_bar(
+                meetings_by_type,
+                "Mødetype",
+                "Antal møder",
+                "Møder fordelt på type",
+                rotation=45,
+            )
             pdf.savefig(fig)
             plt.close(fig)
 
@@ -512,13 +459,25 @@ def build_pdf_report(
 
         # Side 7: Mødedage
         if not meetings_by_weekday.empty:
-            fig = plot_bar(meetings_by_weekday, "Ugedag", "Antal møder", "Mødedage", rotation=0)
+            fig = plot_bar(
+                meetings_by_weekday,
+                "Ugedag",
+                "Antal møder",
+                "Mødedage",
+                rotation=0,
+            )
             pdf.savefig(fig)
             plt.close(fig)
 
         # Side 8: Mødestatus
         if not meeting_status.empty:
-            fig = plot_bar(meeting_status, "Status", "Antal møder", "Mødestatus", rotation=45)
+            fig = plot_bar(
+                meeting_status,
+                "Status",
+                "Antal møder",
+                "Mødestatus",
+                rotation=45,
+            )
             pdf.savefig(fig)
             plt.close(fig)
 
@@ -598,115 +557,47 @@ def build_pdf_report(
     return buf
 
 
-def build_removed_pdf(removed_groups, removed_meetings, removed_seats):
-    """
-    PDF med de data der er sorteret fra (grupper, møder, sæder).
-    """
-    buf = io.BytesIO()
-    with PdfPages(buf) as pdf:
-        # Fjernede grupper
-        if removed_groups is not None and not removed_groups.empty:
-            fig, ax = plt.subplots(figsize=(8.27, 11.69))
-            ax.axis("off")
-            ax.set_title("Fjernede grupper", loc="left")
-            y = 0.95
-            for _, row in removed_groups.iterrows():
-                name = row.get("Gruppenavn", "")
-                reason = row.get("Fjernelsesårsag", "")
-                ax.text(0.05, y, f"- {name} ({reason})", fontsize=9, va="top")
-                y -= 0.02
-                if y < 0.05:
-                    pdf.savefig(fig)
-                    plt.close(fig)
-                    fig, ax = plt.subplots(figsize=(8.27, 11.69))
-                    ax.axis("off")
-                    y = 0.95
-            pdf.savefig(fig)
-            plt.close(fig)
-
-        # Fjernede møder
-        if removed_meetings is not None and not removed_meetings.empty:
-            fig, ax = plt.subplots(figsize=(8.27, 11.69))
-            ax.axis("off")
-            ax.set_title("Fjernede møder", loc="left")
-            y = 0.95
-            for _, row in removed_meetings.iterrows():
-                g = row.get("Gruppenavn", "")
-                title = row.get("Mødetitel", "")
-                reason = row.get("Fjernelsesårsag", "")
-                ax.text(0.05, y, f"- {g}: {title} ({reason})", fontsize=8, va="top")
-                y -= 0.02
-                if y < 0.05:
-                    pdf.savefig(fig)
-                    plt.close(fig)
-                    fig, ax = plt.subplots(figsize=(8.27, 11.69))
-                    ax.axis("off")
-                    y = 0.95
-            pdf.savefig(fig)
-            plt.close(fig)
-
-        # Fjernede sæder/medlemmer
-        if removed_seats is not None and not removed_seats.empty:
-            fig, ax = plt.subplots(figsize=(8.27, 11.69))
-            ax.axis("off")
-            ax.set_title("Fjernede medlemmer (sæder)", loc="left")
-            y = 0.95
-            for _, row in removed_seats.iterrows():
-                navn = f"{row.get('Fornavn', '')} {row.get('Efternavn', '')}".strip()
-                medlemskaber = row.get("Medlemskaber", "")
-                reason = row.get("Fjernelsesårsag", "")
-                ax.text(0.05, y, f"- {navn}: {medlemskaber} ({reason})", fontsize=8, va="top")
-                y -= 0.02
-                if y < 0.05:
-                    pdf.savefig(fig)
-                    plt.close(fig)
-                    fig, ax = plt.subplots(figsize=(8.27, 11.69))
-                    ax.axis("off")
-                    y = 0.95
-            pdf.savefig(fig)
-            plt.close(fig)
-
-    buf.seek(0)
-    return buf
-
-
 # ---------- STREAMLIT-APP ----------
 
 def main():
     st.title("DGE-rapportgenerator (Regioner, grupper og møder)")
 
     st.markdown(
-        "Upload de tre Excel-filer (grupper, møder, medlemmer) og vælg periode og regioner.\n\n"
-        "Appen genererer både visuelle figurer og en samlet PDF-rapport, der ligner din eksisterende rapport.\n\n"
-        "_Det er kolonneoverskrifterne der er vigtige – rækkefølgen af kolonnerne er ikke afgørende._"
+        "Upload de tre Excel-filer (grupper, møder, medlemmer) og vælg periode og regioner.\n"
+        "Appen genererer både visuelle figurer og en samlet PDF-rapport, der ligner din eksisterende rapport."
     )
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        groups_file = st.file_uploader("Gruppe-data (fx workspace_groups_all-RN.xlsx)", type=["xlsx"])
+        groups_file = st.file_uploader(
+            "Gruppe-data (fx workspace_groups_all-RN.xlsx)", type=["xlsx"]
+        )
     with col2:
-        meetings_file = st.file_uploader("Møde-data (fx workspace_meetings_all-RN.xlsx)", type=["xlsx"])
+        meetings_file = st.file_uploader(
+            "Møde-data (fx workspace_meetings_all-RN.xlsx)", type=["xlsx"]
+        )
     with col3:
-        seats_file = st.file_uploader("Medlems-/sæde-data (fx workspace_seats_all-RN.xlsx)", type=["xlsx"])
+        seats_file = st.file_uploader(
+            "Medlems-/sæde-data (fx workspace_seats_all-RN.xlsx)", type=["xlsx"]
+        )
 
     if not (groups_file and meetings_file and seats_file):
         st.info("Upload alle tre filer for at fortsætte.")
         return
 
-    # Indlæs rå data
+    # Indlæs og rens data
     groups_df_raw = load_excel(groups_file)
     meetings_df_raw = load_excel(meetings_file)
     seats_df_raw = load_excel(seats_file)
 
-    # Rens data (inkl. fjernede rækker)
-    groups_df, removed_groups = clean_groups_df(groups_df_raw)
-    meetings_df, removed_meetings = clean_meetings_df(meetings_df_raw, valid_groups_df=groups_df)
-    seats_df, removed_seats = clean_seats_df(seats_df_raw)
+    groups_df = clean_groups_df(groups_df_raw)
+    meetings_df = clean_meetings_df(meetings_df_raw)
+    seats_df = clean_seats_df(seats_df_raw)
 
     # Vælg periode
     st.subheader("Periodevalg")
     if meetings_df is None or meetings_df.empty or "Starttidspunkt" not in meetings_df.columns:
-        st.error("Kunne ikke finde gyldige mødedatoer i mødefilen.")
+        st.error("Møde-filen indeholder ingen gyldige datoer i kolonnen 'Starttidspunkt'.")
         return
 
     min_date = meetings_df["Starttidspunkt"].min()
@@ -729,7 +620,9 @@ def main():
     # Vælg region(er)
     st.subheader("Regioner")
     region_options = get_region_options(groups_df, meetings_df, seats_df)
-    selected_regions = st.multiselect("Vælg region(er)", options=region_options, default=region_options)
+    selected_regions = st.multiselect(
+        "Vælg region(er)", options=region_options, default=region_options
+    )
 
     # Filtrér på regioner
     if selected_regions:
@@ -740,24 +633,77 @@ def main():
         if seats_df is not None and "Region" in seats_df.columns:
             seats_df = seats_df[seats_df["Region"].isin(selected_regions)]
 
+    # Rens for 'Gruppeledere' og test/demo-grupper
+    groups_df, meetings_df, removed_groups = remove_test_and_group_leader_groups(
+        groups_df, meetings_df
+    )
+
+    if removed_groups is not None and not removed_groups.empty:
+        st.subheader("Grupper der er sorteret fra (Gruppeledere / test / demo)")
+        st.dataframe(removed_groups[["Gruppenavn", "Region", "Status"]]
+                     if "Status" in removed_groups.columns
+                     else removed_groups)
+    # --- DOWNLOAD AF FRASORTEREDE DATA ---
+
+    st.subheader("Download frasorterede data")
+
+    if removed_groups is not None and not removed_groups.empty:
+        st.download_button(
+            "Download frasorterede grupper (CSV)",
+            removed_groups.to_csv(index=False).encode("utf-8"),
+            "frasorterede_grupper.csv",
+            mime="text/csv",
+        )
+
+    if removed_meetings is not None and not removed_meetings.empty:
+        st.download_button(
+            "Download frasorterede møder (CSV)",
+            removed_meetings.to_csv(index=False).encode("utf-8"),
+            "frasorterede_moeder.csv",
+            mime="text/csv",
+        )
+
+    if removed_seats is not None and not removed_seats.empty:
+        st.download_button(
+            "Download frasorterede medlemmer (CSV)",
+            removed_seats.to_csv(index=False).encode("utf-8"),
+            "frasorterede_medlemmer.csv",
+            mime="text/csv",
+        )
+
+
+    
     # Filtrér møder på periode
     meetings_period_df = filter_by_period(meetings_df, start_dt, end_dt)
 
+    # Kun godkendte møder
+    if meetings_period_df is not None and "Status" in meetings_period_df.columns:
+        meetings_period_df = meetings_period_df[
+            meetings_period_df["Status"].fillna("").str.lower() == "godkendt"
+        ]
+
     if meetings_period_df is None or meetings_period_df.empty:
-        st.warning("Ingen møder i den valgte periode/region(er). Prøv at ændre periode eller region.")
+        st.warning(
+            "Ingen godkendte møder i den valgte periode/region(er) efter rensning. "
+            "Prøv at ændre periode eller region."
+        )
         return
 
     # ---------- BEREGN ALLE AGGREGATER ----------
 
     basic_stats = compute_basic_stats(meetings_period_df)
     meetings_by_type = compute_meetings_by_type(meetings_period_df)
-    meetings_by_participant_bins = compute_meetings_by_participant_bins(meetings_period_df)
+    meetings_by_participant_bins = compute_meetings_by_participant_bins(
+        meetings_period_df
+    )
     meetings_per_group = compute_meetings_per_group(meetings_period_df)
     group_size_dist = compute_group_size_distribution(groups_df)
     group_size_by_type = compute_group_size_by_type(groups_df)
     meetings_by_weekday = compute_meetings_by_weekday(meetings_period_df)
     meeting_status = compute_meeting_status(meetings_period_df)
-    groups_without_meetings = compute_groups_without_meetings(groups_df, meetings_df, start_dt, end_dt)
+    groups_without_meetings = compute_groups_without_meetings(
+        groups_df, meetings_df, start_dt, end_dt
+    )
     closed_groups = compute_closed_groups_this_year(groups_df, year=start_date.year)
     member_types = compute_member_types(seats_df)
     groups_per_person = compute_groups_per_person(seats_df)
@@ -769,7 +715,7 @@ def main():
     total_meetings, total_participant_days = basic_stats
     col_a, col_b = st.columns(2)
     with col_a:
-        st.metric("Antal møder i perioden", total_meetings)
+        st.metric("Antal godkendte møder i perioden", total_meetings)
     with col_b:
         st.metric("Antal kursusdeltagerdage i perioden", total_participant_days)
 
@@ -779,7 +725,9 @@ def main():
 
     st.subheader("Mødedeltagelse (antal deltagere pr. møde)")
     if not meetings_by_participant_bins.empty:
-        st.bar_chart(meetings_by_participant_bins.set_index("Deltagerkategori")["Antal møder"])
+        st.bar_chart(
+            meetings_by_participant_bins.set_index("Deltagerkategori")["Antal møder"]
+        )
 
     st.subheader("Gruppernes mødeaktivitet (antal møder pr. gruppe)")
     if not meetings_per_group.empty:
@@ -802,7 +750,7 @@ def main():
     if not meetings_by_weekday.empty:
         st.bar_chart(meetings_by_weekday.set_index("Ugedag")["Antal møder"])
 
-    st.subheader("Mødestatus")
+    st.subheader("Mødestatus (kun godkendte er med i hovedtallene)")
     if not meeting_status.empty:
         st.bar_chart(meeting_status.set_index("Status")["Antal møder"])
 
@@ -820,13 +768,15 @@ def main():
 
     st.subheader("Antal grupper man er medlem af")
     if groups_per_person is not None and not groups_per_person.empty:
-        st.bar_chart(groups_per_person.set_index("Antal grupper")["Antal personer"])
+        st.bar_chart(
+            groups_per_person.set_index("Antal grupper")["Antal personer"]
+        )
 
     st.subheader("Grupper pr. region pr. 100.000 borgere")
     if groups_per_region_norm is not None and not groups_per_region_norm.empty:
         st.dataframe(groups_per_region_norm)
 
-    # ---------- PDF DOWNLOAD (HOVEDRAPPORT) ----------
+    # ---------- PDF DOWNLOAD ----------
 
     st.subheader("Download rapport som PDF")
     pdf_buffer = build_pdf_report(
@@ -849,17 +799,6 @@ def main():
         label="Download PDF-rapport",
         data=pdf_buffer,
         file_name="dge_rapport.pdf",
-        mime="application/pdf",
-    )
-
-    # ---------- PDF DOWNLOAD (FJERNEDE DATA) ----------
-
-    st.subheader("Download PDF med frasorterede data")
-    removed_pdf_buffer = build_removed_pdf(removed_groups, removed_meetings, removed_seats)
-    st.download_button(
-        label="Download PDF med frasorterede grupper/møder/medlemmer",
-        data=removed_pdf_buffer,
-        file_name="dge_frasorterede_data.pdf",
         mime="application/pdf",
     )
 
