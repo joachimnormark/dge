@@ -576,6 +576,12 @@ def main():
         meetings_df = meetings_df[meetings_df["Region"].isin(selected_regions)]
         seats_df = seats_df[seats_df["Region"].isin(selected_regions)]
 
+    # ⭐ Fjern gruppen "Gruppeledere" fra groups_df
+groups_df = groups_df[
+    groups_df["Gruppenavn"].astype(str).str.strip().str.lower() != "gruppeledere"
+]
+
+
 # Filtrér møder på periode
     meetings_period_df = filter_by_period(meetings_df, start_dt, end_dt)
 
