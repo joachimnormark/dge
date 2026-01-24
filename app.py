@@ -928,7 +928,7 @@ def main():
 
     st.subheader("Medlemstyper – fordelt på puljer")
 
-    member_counts = compute_membertype_pie(members_df)
+    member_counts = compute_membertype_pie(seats_df)
 
     if not member_counts.empty:
         fig = px.pie(
