@@ -91,13 +91,13 @@ def clean_groups_df(df):
     df = df.copy()
 
     # DEBUG: vis kolonnenavne
-    st.write("DEBUG – kolonner i groups_df:", df.columns.tolist())
+    # st.write("DEBUG – kolonner i groups_df:", df.columns.tolist())
 
     # DEBUG: vis rå værdier i arkiveringskolonnen (hvis den findes)
-    if "Dato for arkivering" in df.columns:
-        st.write("DEBUG – rå arkiveringsværdier:", df["Dato for arkivering"].head(20).tolist())
-    else:
-        st.write("DEBUG – ingen kolonne med navnet 'Dato for arkivering' fundet")
+    #if "Dato for arkivering" in df.columns:
+     #   st.write("DEBUG – rå arkiveringsværdier:", df["Dato for arkivering"].head(20).tolist())
+    #else:
+     #   st.write("DEBUG – ingen kolonne med navnet 'Dato for arkivering' fundet")
 
     # Standardiser kolonnenavne
     df.columns = [c.strip() for c in df.columns]
