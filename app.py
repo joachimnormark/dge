@@ -90,29 +90,30 @@ def clean_groups_df(df):
 
     df = df.copy()
 
-    # ⭐ DEBUG: vis kolonnenavne i rå groups_df
+    # DEBUG: vis kolonnenavne
     st.write("DEBUG – kolonner i groups_df:", df.columns.tolist())
+
+    # DEBUG: vis rå værdier i arkiveringskolonnen (hvis den findes)
+    if "Dato for arkivering" in df.columns:
+        st.write("DEBUG – rå arkiveringsværdier:", df["Dato for arkivering"].head(20).tolist())
+    else:
+        st.write("DEBUG – ingen kolonne med navnet 'Dato for arkivering' fundet")
 
     # Standardiser kolonnenavne
     df.columns = [c.strip() for c in df.columns]
 
     # ⭐ Dato for arkivering – robust parsing
     if "Dato for arkivering" in df.columns:
-        # Erstat '-' og tomme felter med NaN
         df["Dato for arkivering"] = df["Dato for arkivering"].replace(["-", ""], np.nan)
-
-        # Trim tekst
         df["Dato for arkivering"] = df["Dato for arkivering"].astype(str).str.strip()
 
-        # Robust parsing af danske datoformater
         df["Dato for arkivering"] = pd.to_datetime(
             df["Dato for arkivering"],
-            format=None,        # lad pandas autodetektere formatet
-            dayfirst=True,      # dansk datoformat
-            errors="coerce"     # alt der ikke kan parses → NaT
+            format=None,
+            dayfirst=True,
+            errors="coerce"
         )
     else:
-        # Hvis kolonnen slet ikke findes, opret den
         df["Dato for arkivering"] = pd.NaT
 
     # Antal medlemmer til numerisk
@@ -120,6 +121,7 @@ def clean_groups_df(df):
         df["Antal medlemmer"] = pd.to_numeric(df["Antal medlemmer"], errors="coerce")
 
     return df
+
 
 
 
