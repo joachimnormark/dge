@@ -577,8 +577,8 @@ def main():
         seats_df = seats_df[seats_df["Region"].isin(selected_regions)]
 
     # ⭐ Fjern gruppen "Gruppeledere" fra groups_df
-groups_df = groups_df[
-    groups_df["Gruppenavn"].astype(str).str.strip().str.lower() != "gruppeledere"
+    groups_df = groups_df[
+        groups_df["Gruppenavn"].astype(str).str.strip().str.lower() != "gruppeledere"
 ]
 
 
