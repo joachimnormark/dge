@@ -9,7 +9,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import streamlit as st
 
 # -------------------------------------------------
-# KONFIG
+# KONFIG 
 # -------------------------------------------------
 
 st.set_page_config(page_title="DGE-rapport", layout="wide")
