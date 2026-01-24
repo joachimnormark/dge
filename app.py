@@ -302,44 +302,66 @@ def compute_groups_per_region_per_100k(groups_df):
     return grp
 
 def compute_meetings_by_type_approved(meetings_df):
-    """
-    Returnerer kun godkendte møder fordelt på type,
-    sorteret i den rækkefølge Joachim ønsker.
-    """
     if meetings_df is None or meetings_df.empty:
         return pd.DataFrame()
 
-    # Normaliser status
     df = meetings_df.copy()
+
+    # Normaliser status
     df["Status"] = df["Status"].astype(str).str.strip().str.lower()
-
-    # Filtrér kun godkendte
     df = df[df["Status"] == "godkendt"]
-
     if df.empty:
         return pd.DataFrame()
 
-    # Gruppér
-    result = df.groupby("Mødetype").size().reset_index(name="Antal møder")
+    # Normaliser mødetype (trim + lowercase til mapping)
+    df["Mødetype_norm"] = (
+        df["Mødetype"]
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
 
-    # Sorteringsrækkefølge
+    # Mapping af variationer → standardnavn
+    type_map = {
+        "dge-møde": "DGE-møde",
+        "supervision": "Supervision",
+        "sge-modul": "SGE-modul",
+        "dge-modul": "DGE-modul",
+        "ej refusion": "Ej refusion",
+        "regional hyldevare": "Regional hyldevare",
+    }
+
+    # Map til standardnavne
+    df["Mødetype_std"] = df["Mødetype_norm"].map(type_map)
+
+    # Fjern typer vi ikke kender
+    df = df[df["Mødetype_std"].notna()]
+
+    # Gruppér
+    result = df.groupby("Mødetype_std").size().reset_index(name="Antal møder")
+
+    # Korrekt rækkefølge
     order = [
         "DGE-møde",
         "Supervision",
         "SGE-modul",
-        "DGE-Modul",
+        "DGE-modul",
         "Regional hyldevare",
         "Ej refusion",
     ]
 
-    # Behold kun typer der faktisk findes
-    result = result[result["Mødetype"].isin(order)]
+    # Ordnet kategori
+    cat = pd.CategoricalDtype(order, ordered=True)
+    result["Mødetype_std"] = result["Mødetype_std"].astype(cat)
 
-    # Sortér efter rækkefølgen
-    result["SortIndex"] = result["Mødetype"].apply(lambda x: order.index(x))
-    result = result.sort_values("SortIndex").drop(columns="SortIndex")
+    # Sortér
+    result = result.sort_values("Mødetype_std")
+
+    # Omdøb kolonnen tilbage til Mødetype
+    result = result.rename(columns={"Mødetype_std": "Mødetype"})
 
     return result
+
 
 
 # ---------- PLOTTES ----------
