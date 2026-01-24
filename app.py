@@ -335,20 +335,25 @@ def compute_groups_without_meetings(groups_df, meetings_df, period_start, period
 
     df_g = groups_df.copy()
 
-    # ⭐ Kun grupper der var aktive i perioden
-    df_g = df_g[
-        df_g["Dato for arkivering"].isna() |
-        (df_g["Dato for arkivering"] >= period_start)
-    ]
+    # Kun grupper der var aktive i perioden
+    df_g["Status"] = "Aktiv"
+    df_g.loc[
+        df_g["Dato for arkivering"].notna() &
+        (df_g["Dato for arkivering"] < period_start),
+        "Status"
+    ] = "Inaktiv"
 
-    # ⭐ Fjern Gruppeledere hvis ønsket
+    # Fjern inaktive grupper der blev arkiveret før perioden
+    df_g = df_g[df_g["Status"] == "Aktiv"]
+
+    # Fjern Gruppeledere
     df_g = df_g[
         df_g["Gruppenavn"].astype(str).str.strip().str.lower() != "gruppeledere"
     ]
 
     # Hvis der ingen møder er, returnér alle aktive grupper
     if meetings_df is None or meetings_df.empty:
-        return df_g[["Gruppenavn"]].copy()
+        return df_g[["Gruppenavn", "Dato for arkivering", "Status"]].copy()
 
     df_m = meetings_df.copy()
 
@@ -360,7 +365,9 @@ def compute_groups_without_meetings(groups_df, meetings_df, period_start, period
 
     df_g["Har møde"] = df_g["Gruppenavn"].isin(groups_with_meetings)
 
-    return df_g.loc[~df_g["Har møde"], ["Gruppenavn"]]
+    # Returnér grupper uden møder + arkiveringsdato + status
+    return df_g.loc[~df_g["Har møde"], ["Gruppenavn", "Dato for arkivering", "Status"]]
+
 
 
 
