@@ -301,6 +301,46 @@ def compute_groups_per_region_per_100k(groups_df):
     grp["Grupper pr. 100.000 borgere"] = grp["Antal grupper"] / grp["Befolkning"] * 100000
     return grp
 
+def compute_meetings_by_type_approved(meetings_df):
+    """
+    Returnerer kun godkendte møder fordelt på type,
+    sorteret i den rækkefølge Joachim ønsker.
+    """
+    if meetings_df is None or meetings_df.empty:
+        return pd.DataFrame()
+
+    # Normaliser status
+    df = meetings_df.copy()
+    df["Status"] = df["Status"].astype(str).str.strip().str.lower()
+
+    # Filtrér kun godkendte
+    df = df[df["Status"] == "godkendt"]
+
+    if df.empty:
+        return pd.DataFrame()
+
+    # Gruppér
+    result = df.groupby("Mødetype").size().reset_index(name="Antal møder")
+
+    # Sorteringsrækkefølge
+    order = [
+        "DGE-møde",
+        "Supervision",
+        "SGE-modul",
+        "DGE-Modul",
+        "Regional hyldevare",
+        "Ej refusion",
+    ]
+
+    # Behold kun typer der faktisk findes
+    result = result[result["Mødetype"].isin(order)]
+
+    # Sortér efter rækkefølgen
+    result["SortIndex"] = result["Mødetype"].apply(lambda x: order.index(x))
+    result = result.sort_values("SortIndex").drop(columns="SortIndex")
+
+    return result
+
 
 # ---------- PLOTTES ----------
 
@@ -528,7 +568,7 @@ def main():
     # ---------- BEREGN ALLE AGGREGATER ----------
 
     basic_stats = compute_basic_stats(meetings_period_df)
-    meetings_by_type = compute_meetings_by_type(meetings_period_df)
+    meetings_by_type = compute_meetings_by_type_approved(meetings_period_df)
     meetings_by_participant_bins = compute_meetings_by_participant_bins(meetings_period_df)
     meetings_per_group = compute_meetings_per_group(meetings_period_df)
     group_size_dist = compute_group_size_distribution(groups_df)
@@ -551,7 +591,7 @@ def main():
     with col_b:
         st.metric("Antal kursusdeltagerdage i perioden", total_participant_days)
 
-    st.subheader("Møder fordelt på type")
+    st.subheader("Godkendte møder fordelt på type")
     if not meetings_by_type.empty:
         st.bar_chart(meetings_by_type.set_index("Mødetype")["Antal møder"])
 
