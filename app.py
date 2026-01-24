@@ -24,8 +24,58 @@ REGION_POPULATION = {
 # ---------- HJÆLPEFUNKTIONER ----------
 
 def parse_date_series(s):
-    """Forsøger at parse datoer robust fra forskellige formater."""
-    return pd.to_datetime(s, errors="coerce", dayfirst=True)
+    """
+    Robust parsing af danske datoer som fx:
+    '14. december 2025, kl. 20:57'
+    '5. januar 2026 kl. 07:38'
+    '24. maj 2024'
+    '2025-12-14'
+    '14/12/2025'
+    """
+    if s is None:
+        return pd.NaT
+
+    # Hvis det allerede er en datetime
+    if isinstance(s, datetime):
+        return s
+
+    # Konverter til tekst
+    s = str(s).strip()
+
+    # Fjern "kl." og komma
+    s = s.replace("kl.", "").replace("Kl.", "").replace("KL.", "")
+    s = s.replace(",", "")
+
+    # Dansk måned → tal
+    months = {
+        "januar": "01",
+        "februar": "02",
+        "marts": "03",
+        "april": "04",
+        "maj": "05",
+        "juni": "06",
+        "juli": "07",
+        "august": "08",
+        "september": "09",
+        "oktober": "10",
+        "november": "11",
+        "december": "12",
+    }
+
+    for dk, num in months.items():
+        if dk in s.lower():
+            s = s.lower().replace(dk, num)
+
+    # Nu ligner datoen noget pandas kan læse
+    # Eksempel: "14. 12 2025 20:57"
+    s = s.replace(".", " ").replace("/", " ")
+
+    # Forsøg parsing
+    try:
+        return pd.to_datetime(s, dayfirst=True, errors="coerce")
+    except:
+        return pd.NaT
+
 
 
 def load_excel(uploaded_file):
@@ -57,9 +107,9 @@ def clean_meetings_df(df):
     df.columns = [c.strip() for c in df.columns]
     # Datoer
     if "Starttidspunkt" in df.columns:
-        df["Starttidspunkt"] = parse_date_series(df["Starttidspunkt"])
+        df["Starttidspunkt"] = df["Starttidspunkt"].apply(parse_date_series)
     if "Sluttidspunkt" in df.columns:
-        df["Sluttidspunkt"] = parse_date_series(df["Sluttidspunkt"])
+        df["Sluttidspunkt"] = df["Sluttidspunkt"].apply(parse_date_series)
     # Antal deltagere
     if "Antal deltagere" in df.columns:
         df["Antal deltagere"] = pd.to_numeric(df["Antal deltagere"], errors="coerce").fillna(0).astype(int)
