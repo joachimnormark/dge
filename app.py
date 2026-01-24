@@ -928,32 +928,33 @@ def main():
 
   # ---------- MEDLEMSTYPER – LAGKAGEDIAGRAM ----------
 
-    st.subheader("Medlemstyper – fordelt på puljer")
+st.subheader("Medlemstyper – fordelt på puljer")
 
-    if seats_df is not None and not seats_df.empty:
+if seats_df is not None and not seats_df.empty:
 
-        if "Stillingsbetegnelse" in seats_df.columns:
+    if "Stillingsbetegnelse" in seats_df.columns:
 
-            seats_df["Kategori"] = seats_df["Stillingsbetegnelse"].apply(categorize_member_type)
-            member_counts = compute_membertype_pie(seats_df)
+        seats_df["Kategori"] = seats_df["Stillingsbetegnelse"].apply(categorize_member_type)
+        member_counts = compute_membertype_pie(seats_df)
 
-           if not member_counts.empty:
-                fig = px.pie(
-                    member_counts,
-                    names="Kategori",
-                    values="Antal",
-                    title="Fordeling af medlemstyper",
-                    hole=0.0
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.write("Ingen medlemstyper registreret.")
-
+        if not member_counts.empty:
+            fig = px.pie(
+                member_counts,
+                names="Kategori",
+                values="Antal",
+                title="Fordeling af medlemstyper",
+                hole=0.0
+            )
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            st.error("Kolonnen 'Stillingsbetegnelse' findes ikke i medlemsdata.")
+            st.write("Ingen medlemstyper registreret.")
 
     else:
-        st.write("Ingen medlemsdata indlæst.")
+        st.error("Kolonnen 'Stillingsbetegnelse' findes ikke i medlemsdata.")
+
+else:
+    st.write("Ingen medlemsdata indlæst.")
+
     
 
 
