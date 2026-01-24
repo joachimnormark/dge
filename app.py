@@ -934,7 +934,7 @@ def main():
     st.subheader("Medlemstyper – fordelt på puljer")
 
     if seats_df is not None and not seats_df.empty:
-        seats_df["Kategori"] = seats_df["Stillingsbetegnelse"].apply(categorize_member_type)
+        df["Kategori"] = df["Stillingsbetegnelse"].apply(categorize_member_type)
         member_counts = compute_membertype_pie(seats_df)
 
         if not member_counts.empty:
