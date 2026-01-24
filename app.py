@@ -570,7 +570,7 @@ def main():
     )
 
     # ⭐ Filtrér på status
-    valid_status = ["godkendt", "afvist", "afsluttet", ""]
+    valid_status = ["godkendt"]
     meetings_period_df = meetings_period_df[
         meetings_period_df["Status"].isin(valid_status)
     ]
