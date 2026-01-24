@@ -624,6 +624,10 @@ def main():
 # Filtrér møder på periode
     meetings_period_df = filter_by_period(meetings_df, start_dt, end_dt)
 
+# ⭐ Gem en version med ALLE statusser til tabel 6
+    meetings_period_all_status = meetings_period_df.copy()
+
+
 # ⭐ Normalisér status
     meetings_period_df["Status"] = (
         meetings_period_df["Status"]
@@ -662,7 +666,7 @@ def main():
     group_size_dist = compute_group_size_distribution(groups_df)
     group_size_by_type = compute_group_size_by_type(groups_df)
     meetings_by_weekday = compute_meetings_by_weekday(meetings_period_df)
-    meeting_status = compute_meeting_status(meetings_period_df)
+    meeting_status = compute_meeting_status(meetings_period_all_status)
     groups_without_meetings = compute_groups_without_meetings(groups_df, meetings_df, start_dt, end_dt)
     closed_groups = compute_closed_groups_this_year(groups_df, year=start_date.year)
     member_types = compute_member_types(seats_df)
