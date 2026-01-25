@@ -788,24 +788,24 @@ def main():
     end_dt = datetime.combine(end_date, datetime.max.time())
 
     
-    st.subheader("Periodevalg")
-    min_date = meetings_df["Starttidspunkt"].min()
-    max_date = meetings_df["Starttidspunkt"].max()
-    col_start, col_end = st.columns(2)
-    with col_start:
-        start_date = st.date_input(
-            "Startdato",
-            value=min_date.date() if pd.notnull(min_date) else datetime.today().date(),
-        )
-    with col_end:
-        end_date = st.date_input(
-            "Slutdato",
-            value=max_date.date() if pd.notnull(max_date) else datetime.today().date(),
-        )
-
-    start_dt = datetime.combine(start_date, datetime.min.time())
-    end_dt = datetime.combine(end_date, datetime.max.time())
-
+   # st.subheader("Periodevalg")
+   # min_date = meetings_df["Starttidspunkt"].min()
+   # max_date = meetings_df["Starttidspunkt"].max()
+   # col_start, col_end = st.columns(2)
+   # with col_start:
+   #     start_date = st.date_input(
+   #         "Startdato",
+   #         value=min_date.date() if pd.notnull(min_date) else datetime.today().date(),
+   #     )
+   # with col_end:
+   #     end_date = st.date_input(
+   #         "Slutdato",
+   #         value=max_date.date() if pd.notnull(max_date) else datetime.today().date(),
+   #     )
+#
+ #   start_dt = datetime.combine(start_date, datetime.min.time())
+  #  end_dt = datetime.combine(end_date, datetime.max.time())
+#
     st.subheader("Regioner")
     region_options = get_region_options(groups_df, meetings_df, seats_df)
     selected_regions = st.multiselect(
