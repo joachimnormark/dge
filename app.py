@@ -505,7 +505,7 @@ def compute_membertype_pie(df):
 
     return counts
 
- def compute_members_with_zero_groups(seats_df):
+def compute_members_with_zero_groups(seats_df):
     if seats_df is None or seats_df.empty:
         return pd.DataFrame()
 
