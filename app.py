@@ -516,7 +516,7 @@ def compute_membertype_pie(df):
 
     df["Antal grupper"] = df["Medlemskaber"].fillna("").apply(
         lambda x: len([g for g in str(x).split(",") if g.strip() != ""])
-    )
+        )
 
     return df[df["Antal grupper"] == 0]
 
