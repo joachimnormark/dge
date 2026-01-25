@@ -703,35 +703,55 @@ def build_pdf_report(
 
 # ---------- STREAMLIT-APP ----------
 
+# ---------- STREAMLIT-APP ----------
+
 def main():
     st.title("DGE-rapportgenerator (Regioner, grupper og møder)")
 
     st.markdown(
-        "Upload de tre Excel-filer (grupper, møder, medlemmer) og vælg periode og regioner.\n"
+        "Upload de tre Excel-filer (grupper, møder, medlemmer) i én handling.\n"
         "Appen genererer både visuelle figurer og en samlet PDF-rapport."
     )
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        groups_file = st.file_uploader(
-            "Gruppe-data (fx workspace_groups_all-RN.xlsx)", type=["xlsx"]
-        )
-    with col2:
-        meetings_file = st.file_uploader(
-            "Møde-data (fx workspace_meetings_all-RN.xlsx)", type=["xlsx"]
-        )
-    with col3:
-        seats_file = st.file_uploader(
-            "Medlems-/sæde-data (fx workspace_seats_all-RN.xlsx)", type=["xlsx"]
-        )
+    # ⭐ NY: Én uploader til alle tre filer
+    uploaded_files = st.file_uploader(
+        "Upload de tre Excel-filer (grupper, møder, medlemmer)",
+        type=["xlsx"],
+        accept_multiple_files=True
+    )
 
-    if not (groups_file and meetings_file and seats_file):
-        st.info("Upload alle tre filer for at fortsætte.")
+    # Kræv at der er uploadet mindst 3 filer
+    if not uploaded_files or len(uploaded_files) < 3:
+        st.info("Upload alle tre Excel-filer for at fortsætte.")
         return
 
+    # ⭐ Identificér filer ud fra navn
+    groups_file = None
+    meetings_file = None
+    seats_file = None
+
+    for f in uploaded_files:
+        name = f.name.lower()
+        if "group" in name or "gruppe" in name:
+            groups_file = f
+        elif "meeting" in name or "møde" in name:
+            meetings_file = f
+        elif "seat" in name or "medlem" in name:
+            seats_file = f
+
+    # ⭐ Tjek at alle tre blev fundet
+    if not (groups_file and meetings_file and seats_file):
+        st.error(
+            "Kunne ikke identificere alle tre filer.\n"
+            "Tjek at filnavnene indeholder 'gruppe', 'møde' og 'medlem' eller 'seat'."
+        )
+        return
+
+    # ⭐ Indlæs data
     groups_df_raw = load_excel(groups_file)
     meetings_df_raw = load_excel(meetings_file)
     seats_df_raw = load_excel(seats_file)
+
 
     groups_df = clean_groups_df(groups_df_raw)
     meetings_df = clean_meetings_df(meetings_df_raw)
