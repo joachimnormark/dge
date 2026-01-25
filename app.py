@@ -759,7 +759,7 @@ def main():
 
     # ---------- PERIODEVALG ----------
 
-    st.subheader("Periodevalg")
+    st.subheader("Vælg periode - enten et helt år eller selvvalgt periode")
 
     # Årsvælger
     year_options = list(range(2024, 2030))
