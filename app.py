@@ -707,45 +707,28 @@ def main():
     st.title("DGE-rapportgenerator (Regioner, grupper og møder)")
 
     st.markdown(
-        "Upload de tre Excel-filer (grupper, møder, medlemmer) i én handling.\n"
+        "Upload de tre Excel-filer (grupper, møder, medlemmer) og vælg periode og regioner.\n"
         "Appen genererer både visuelle figurer og en samlet PDF-rapport."
     )
 
-    # ⭐ NY: Én uploader til alle tre filer
-    uploaded_files = st.file_uploader(
-        "Upload de tre Excel-filer (grupper, møder, medlemmer)",
-        type=["xlsx"],
-        accept_multiple_files=True
-    )
-
-    # Kræv at der er uploadet mindst 3 filer
-    if not uploaded_files or len(uploaded_files) < 3:
-        st.info("Upload alle tre Excel-filer for at fortsætte.")
-        return
-
-    # ⭐ Identificér filer ud fra navn
-    groups_file = None
-    meetings_file = None
-    seats_file = None
-
-    for f in uploaded_files:
-        name = f.name.lower()
-        if "group" in name or "gruppe" in name:
-            groups_file = f
-        elif "meeting" in name or "møde" in name:
-            meetings_file = f
-        elif "seat" in name or "medlem" in name:
-            seats_file = f
-
-    # ⭐ Tjek at alle tre blev fundet
-    if not (groups_file and meetings_file and seats_file):
-        st.error(
-            "Kunne ikke identificere alle tre filer.\n"
-            "Tjek at filnavnene indeholder 'gruppe', 'møde' og 'medlem' eller 'seat'."
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        groups_file = st.file_uploader(
+            "Gruppe-data (fx workspace_groups_all-RN.xlsx)", type=["xlsx"]
         )
+    with col2:
+        meetings_file = st.file_uploader(
+            "Møde-data (fx workspace_meetings_all-RN.xlsx)", type=["xlsx"]
+        )
+    with col3:
+        seats_file = st.file_uploader(
+            "Medlems-/sæde-data (fx workspace_seats_all-RN.xlsx)", type=["xlsx"]
+        )
+
+    if not (groups_file and meetings_file and seats_file):
+        st.info("Upload alle tre filer for at fortsætte.")
         return
 
-    # ⭐ Indlæs data
     groups_df_raw = load_excel(groups_file)
     meetings_df_raw = load_excel(meetings_file)
     seats_df_raw = load_excel(seats_file)
@@ -754,36 +737,23 @@ def main():
     meetings_df = clean_meetings_df(meetings_df_raw)
     seats_df = clean_seats_df(seats_df_raw)
 
-   # ---------- PERIODEVALG ----------
-
-st.subheader("Periodevalg")
-
-    # Årsvælger
-    year_options = list(range(2024, 2030))
-    selected_year = st.selectbox("Vælg år", year_options, index=0)
-
-    # Beregn start/slutdato ud fra valgt år
-    auto_start = datetime(selected_year, 1, 1)
-    auto_end = datetime(selected_year, 12, 31)
-
+    st.subheader("Periodevalg")
+    min_date = meetings_df["Starttidspunkt"].min()
+    max_date = meetings_df["Starttidspunkt"].max()
     col_start, col_end = st.columns(2)
-
     with col_start:
         start_date = st.date_input(
             "Startdato",
-            value=auto_start.date()
+            value=min_date.date() if pd.notnull(min_date) else datetime.today().date(),
         )
-
     with col_end:
         end_date = st.date_input(
             "Slutdato",
-            value=auto_end.date()
+            value=max_date.date() if pd.notnull(max_date) else datetime.today().date(),
         )
 
-    # Konverter til datetime
     start_dt = datetime.combine(start_date, datetime.min.time())
     end_dt = datetime.combine(end_date, datetime.max.time())
-
 
     st.subheader("Regioner")
     region_options = get_region_options(groups_df, meetings_df, seats_df)
