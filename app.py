@@ -505,6 +505,21 @@ def compute_membertype_pie(df):
 
     return counts
 
+ def compute_members_with_zero_groups(seats_df):
+    if seats_df is None or seats_df.empty:
+        return pd.DataFrame()
+
+    df = seats_df.copy()
+
+    if "Medlemskaber" not in df.columns:
+        return pd.DataFrame()
+
+    df["Antal grupper"] = df["Medlemskaber"].fillna("").apply(
+        lambda x: len([g for g in str(x).split(",") if g.strip() != ""])
+    )
+
+    return df[df["Antal grupper"] == 0]
+
 
 # ---------- PLOTTES ----------
 
@@ -956,10 +971,20 @@ def main():
         st.bar_chart(
             groups_per_person.set_index("Antal grupper")["Antal personer"]
         )
+    # ---------- MEDLEMMER MED 0 GRUPPER ----------
 
-    st.subheader("Grupper pr. region pr. 100.000 borgere")
-    if groups_per_region_norm is not None and not groups_per_region_norm.empty:
-        st.dataframe(groups_per_region_norm)
+    st.subheader("Medlemmer registreret i 0 grupper")
+
+    zero_members = compute_members_with_zero_groups(seats_df)
+    
+    if zero_members is not None and not zero_members.empty:
+        st.dataframe(zero_members)
+    else:
+        st.write("Alle medlemmer er registreret i mindst én gruppe.")
+
+        st.subheader("Grupper pr. region pr. 100.000 borgere")
+        if groups_per_region_norm is not None and not groups_per_region_norm.empty:
+            st.dataframe(groups_per_region_norm)
 
     st.subheader("Download rapport som PDF")
     pdf_buffer = build_pdf_report(
