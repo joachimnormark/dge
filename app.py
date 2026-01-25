@@ -754,23 +754,36 @@ def main():
     meetings_df = clean_meetings_df(meetings_df_raw)
     seats_df = clean_seats_df(seats_df_raw)
 
-    st.subheader("Periodevalg")
-    min_date = meetings_df["Starttidspunkt"].min()
-    max_date = meetings_df["Starttidspunkt"].max()
-    col_start, col_end = st.columns(2)
-    with col_start:
-        start_date = st.date_input(
-            "Startdato",
-            value=min_date.date() if pd.notnull(min_date) else datetime.today().date(),
-        )
-    with col_end:
-        end_date = st.date_input(
-            "Slutdato",
-            value=max_date.date() if pd.notnull(max_date) else datetime.today().date(),
-        )
+   # ---------- PERIODEVALG ----------
 
-    start_dt = datetime.combine(start_date, datetime.min.time())
-    end_dt = datetime.combine(end_date, datetime.max.time())
+st.subheader("Periodevalg")
+
+# Årsvælger
+year_options = list(range(2024, 2030))
+selected_year = st.selectbox("Vælg år", year_options, index=0)
+
+# Beregn start/slutdato ud fra valgt år
+auto_start = datetime(selected_year, 1, 1)
+auto_end = datetime(selected_year, 12, 31)
+
+col_start, col_end = st.columns(2)
+
+with col_start:
+    start_date = st.date_input(
+        "Startdato",
+        value=auto_start.date()
+    )
+
+with col_end:
+    end_date = st.date_input(
+        "Slutdato",
+        value=auto_end.date()
+    )
+
+# Konverter til datetime
+start_dt = datetime.combine(start_date, datetime.min.time())
+end_dt = datetime.combine(end_date, datetime.max.time())
+
 
     st.subheader("Regioner")
     region_options = get_region_options(groups_df, meetings_df, seats_df)
