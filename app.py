@@ -940,6 +940,7 @@ def main():
 
     st.subheader("Grupper med færre end 4 møder i perioden")
     if few_meetings is not None and not few_meetings.empty:
+        few_meetings = few_meetings.sort_values("Antal møder", ascending=True)
         st.dataframe(few_meetings)
     else:
         st.write("Alle grupper har afholdt mindst 4 møder i perioden.")
