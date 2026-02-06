@@ -351,7 +351,7 @@ def compute_groups_with_few_meetings(
         df_g["Antal møder"] = 0
         return df_g[df_g["Antal møder"] < min_meetings][
             ["Gruppenavn", "Antal møder", "Status"]
-        ]
+        ].sort_values("Antal møder", ascending=True)
 
     df_m = meetings_df[
         (meetings_df["Starttidspunkt"] >= period_start)
