@@ -427,10 +427,14 @@ def compute_groups_per_person(seats_df):
     df = seats_df.copy()
     if "Medlemskaber" not in df.columns:
         return pd.DataFrame()
+
+    df["Medlemskaber"] = df["Medlemskaber"].str.replace("Gruppeledere", "", case=False)
+
     df["Antal grupper"] = df["Medlemskaber"].fillna("").apply(
         lambda x: len([g for g in str(x).split(",") if g.strip() != ""])
     )
     return df.groupby("Antal grupper").size().reset_index(name="Antal personer")
+
 
 
 def compute_groups_per_region_per_100k(groups_df):
