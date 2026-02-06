@@ -337,6 +337,14 @@ def compute_groups_with_few_meetings(
     df_g.loc[mask_before, "Status"] = "Inaktiv før perioden"
     df_g = df_g[df_g["Status"] != "Inaktiv før perioden"]
 
+    # Markér grupper lukket i perioden
+    mask_closed = df_g["Dato for arkivering"].notna() & (
+        (df_g["Dato for arkivering"] >= period_start) &
+        (df_g["Dato for arkivering"] <= period_end)
+    )
+    df_g.loc[mask_closed, "Status"] = "Lukket i perioden"
+
+
     df_g = df_g[df_g["Gruppenavn"].str.strip().str.lower() != "gruppeledere"]
 
     if meetings_df is None or meetings_df.empty:
