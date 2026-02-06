@@ -518,11 +518,14 @@ def compute_members_with_zero_groups(seats_df):
     if "Medlemskaber" not in df.columns:
         return pd.DataFrame()
 
+    df["Medlemskaber"] = df["Medlemskaber"].str.replace("Gruppeledere", "", case=False)
+
     df["Antal grupper"] = df["Medlemskaber"].fillna("").apply(
         lambda x: len([g for g in str(x).split(",") if g.strip() != ""])
-        )
+    )
 
     return df[df["Antal grupper"] == 0]
+
 
 
 # ---------- PLOTTES ----------
