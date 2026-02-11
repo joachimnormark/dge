@@ -1,9 +1,9 @@
-import streamlit as st 
+import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import io
 from reportlab.lib.pagesizes import A4, landscape
@@ -11,41 +11,31 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from PIL import Image
 
-# Configuration
+# Config
 TEXTS = {
     "app_title": "📊 DGE Mødeaktivitets-analyse",
     "upload_header": "Upload datafiler",
     "upload_files": "Upload 3 Excel-filer (grupper, medlemmer, møder)",
     "period_header": "Vælg analyseperiode",
     "compare_checkbox": "Sammenlign med samme periode sidste år",
-    
     "table1_title": "Tabel 1: Mødestatistik - Total og fordeling på status",
     "table1_desc": "Viser antal møder fordelt på godkendelsestatus og gruppetype.",
-    
     "table2_title": "Tabel 2: Mødedage - Fordeling på ugedage",
     "table2_desc": "Viser hvilke ugedage møder afholdes på, fordelt på gruppetype.",
-    
     "table3_title": "Tabel 3: Mødetyper - Fordeling",
     "table3_desc": "Viser antallet af forskellige mødetyper.",
-    
     "table4_title": "Tabel 4: Mødedeltagelse - Antal deltagere per møde",
     "table4_desc": "Viser fordelingen af møder efter antal deltagere, fordelt på gruppetype.",
-    
     "table5_title": "Tabel 5: Gruppestørrelse fordelt på gruppetype",
     "table5_desc": "Viser fordelingen af gruppestørrelser for DGE, Supervision og Junior grupper.",
-    
     "table6_title": "Tabel 6: Gruppernes mødeaktivitet",
     "table6_desc": "Viser hvor mange grupper der har holdt 0, 1, 2, 3... møder i perioden.",
-    
     "table7_title": "Tabel 7: Antal grupper medlemmer er medlem af",
     "table7_desc": "Viser hvor mange grupper hvert medlem deltager i (ekskl. Gruppeledere).",
-    
     "table8_title": "Tabel 8: Medlemstyper - Fordeling i clusters",
     "table8_desc": "Viser hvordan medlemmer fordeler sig.",
-    
     "table9_title": "Tabel 9: Grupper med få møder (<4 i perioden)",
     "table9_desc": "Liste over grupper der har holdt færre end 4 møder i perioden.",
-    
     "table10_title": "Tabel 10: Lukkede grupper i perioden",
     "table10_desc": "Oversigt over grupper der er blevet arkiveret/lukket.",
 }
@@ -58,7 +48,6 @@ def parse_danish_date(date_str):
         return pd.NaT
     if isinstance(date_str, datetime):
         return date_str
-    
     date_str = str(date_str).strip().replace('kl.', '').replace('Kl.', '').replace(',', '')
     months = {'januar': '01', 'februar': '02', 'marts': '03', 'april': '04', 'maj': '05', 'juni': '06', 
               'juli': '07', 'august': '08', 'september': '09', 'oktober': '10', 'november': '11', 'december': '12'}
@@ -136,7 +125,7 @@ def get_group_type_from_meeting(meetings_df, group_df):
     df['Gruppetype_std'] = df['Gruppetyper'].apply(standardize_group_type)
     return df
 
-# Analysis functions
+# Analysis
 def analyze_meeting_status_by_type(meetings_df):
     if meetings_df is None or meetings_df.empty:
         return pd.DataFrame()
@@ -145,6 +134,8 @@ def analyze_meeting_status_by_type(meetings_df):
     df = meetings_df.copy()
     df['Status_mapped'] = df['Status'].map(status_map).fillna('Andet')
     result = df.groupby(['Status_mapped', 'Gruppetype_std'], observed=True).size().reset_index(name='Antal')
+    # KRITISK: Convert kategorier til strings
+    result['Status_mapped'] = result['Status_mapped'].astype(str)
     return result
 
 def analyze_weekday_by_type(meetings_df):
@@ -156,6 +147,7 @@ def analyze_weekday_by_type(meetings_df):
                   'Friday': 'Fredag', 'Saturday': 'Lørdag', 'Sunday': 'Søndag'}
     df['Ugedag'] = df['Weekday'].map(weekday_map)
     result = df.groupby(['Ugedag', 'Gruppetype_std'], observed=True).size().reset_index(name='Antal')
+    result['Ugedag'] = result['Ugedag'].astype(str)
     return result
 
 def analyze_participants_by_type(meetings_df):
@@ -166,38 +158,35 @@ def analyze_participants_by_type(meetings_df):
     df = meetings_df.copy()
     df['Deltagerkategori'] = pd.cut(df['Antal deltagere'], bins=bins, labels=labels, right=True)
     result = df.groupby(['Deltagerkategori', 'Gruppetype_std'], observed=True).size().reset_index(name='Antal')
+    result['Deltagerkategori'] = result['Deltagerkategori'].astype(str)
     return result
 
 def analyze_group_size_by_type(groups_df, period_start):
-    """FIXED: Direkte fra groups_df"""
     if groups_df is None or groups_df.empty:
         return pd.DataFrame()
     df = groups_df.copy()
-    # Filtrer arkiverede
     if 'Dato for arkivering' in df.columns:
         df = df[df['Dato for arkivering'].isna() | (df['Dato for arkivering'] >= period_start)]
     if 'Antal medlemmer' not in df.columns or 'Gruppetyper' not in df.columns:
         return pd.DataFrame()
-    # Kategoriser
     bins = [0, 4, 6, 8, 10, 12, 14, 999]
     labels = ['1-4', '5-6', '7-8', '9-10', '11-12', '13-14', '15+']
     df['Størrelseskategori'] = pd.cut(df['Antal medlemmer'], bins=bins, labels=labels, right=True)
     df['Gruppetype_std'] = df['Gruppetyper'].apply(standardize_group_type)
     result = df.groupby(['Størrelseskategori', 'Gruppetype_std'], observed=True).size().reset_index(name='Antal')
+    # KRITISK FIX: Convert category til string
+    result['Størrelseskategori'] = result['Størrelseskategori'].astype(str)
     return result
 
 def analyze_group_meeting_activity(groups_df, meetings_df):
-    """FIXED: Med ALLE kategorier 0-10+"""
     if groups_df is None or groups_df.empty:
         return pd.DataFrame()
-    # Tæl møder
     if meetings_df is not None and not meetings_df.empty:
         meeting_counts = meetings_df.groupby('Gruppenavn').size().to_dict()
     else:
         meeting_counts = {}
     df = groups_df[['Gruppenavn', 'Gruppetyper']].copy()
     df['Antal_møder'] = df['Gruppenavn'].map(meeting_counts).fillna(0).astype(int)
-    # Kategoriser
     def cat_meetings(n):
         return '10+' if n >= 10 else str(int(n))
     df['Mødekategori'] = df['Antal_møder'].apply(cat_meetings)
@@ -215,7 +204,6 @@ def analyze_group_meeting_activity(groups_df, meetings_df):
     return pd.DataFrame(complete)
 
 def analyze_groups_per_member(seats_df):
-    """FIXED: Kun hele tal"""
     if seats_df is None or seats_df.empty:
         return pd.DataFrame()
     df = seats_df.copy()
@@ -239,6 +227,7 @@ def analyze_groups_per_member(seats_df):
     order = ['0', '1', '2', '3', '4+']
     result['Antal grupper'] = pd.Categorical(result['Antal grupper'], categories=order, ordered=True)
     result = result.sort_values('Antal grupper').reset_index(drop=True)
+    result['Antal grupper'] = result['Antal grupper'].astype(str)  # Force til string
     return result
 
 def analyze_member_types(seats_df):
@@ -279,44 +268,39 @@ def analyze_closed_groups(groups_df, start_date, end_date):
         return pd.DataFrame()
     return result[['Gruppenavn', 'Gruppetyper', 'Dato for arkivering', 'Antal medlemmer']].sort_values('Dato for arkivering')
 
-# Visualization - FIXED to show ALL categories
+# Visualization - COMPLETELY REWRITTEN
 def create_stacked_bar_chart(data, x_col, y_col, title, description, ordered_categories=None):
-    """FIXED: Garanteret ALLE kategorier vises"""
+    """SIMPLE and DIRECT approach - no fancy pivot"""
     if data.empty:
         return None, description
-    
-    # Build komplet pivot manuelt
-    all_types = ['DGE', 'Supervision', 'Junior']
     
     if ordered_categories is None:
         ordered_categories = sorted(data[x_col].unique())
     
-    # Byg pivot dict
-    pivot_data = {cat: {gtype: 0 for gtype in all_types} for cat in ordered_categories}
+    # Byg data DIREKTE for plotly
+    traces_data = {'DGE': [], 'Supervision': [], 'Junior': []}
     
-    for _, row in data.iterrows():
-        cat = row[x_col]
-        gtype = row['Gruppetype_std']
-        val = row[y_col]
-        if cat in pivot_data and gtype in pivot_data[cat]:
-            pivot_data[cat][gtype] = val
-    
-    # Convert til DataFrame
-    pivot = pd.DataFrame(pivot_data).T
-    pivot.index.name = x_col
+    for cat in ordered_categories:
+        for gtype in ['DGE', 'Supervision', 'Junior']:
+            mask = (data[x_col] == cat) & (data['Gruppetype_std'] == gtype)
+            matching = data[mask]
+            val = matching[y_col].sum() if len(matching) > 0 else 0
+            traces_data[gtype].append(val)
     
     fig = go.Figure()
+    
     for gtype in ['DGE', 'Supervision', 'Junior']:
         fig.add_trace(go.Bar(
             name=gtype,
-            x=[str(c) for c in pivot.index],
-            y=pivot[gtype],
-            marker_color=COLORS.get(gtype, '#999999')
+            x=ordered_categories,  # DIRECT list of strings
+            y=traces_data[gtype],
+            marker_color=COLORS[gtype]
         ))
     
     fig.update_layout(
         title=title, xaxis_title=x_col, yaxis_title='Antal', barmode='stack', height=500, showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        xaxis=dict(type='category')  # FORCE category type
     )
     return fig, description
 
@@ -328,6 +312,7 @@ def create_comparison_stacked_bar(data_p1, data_p2, x_col, y_col, title, descrip
     data_p1['Periode'] = 'P1'
     data_p2['Periode'] = 'P2'
     combined = pd.concat([data_p1, data_p2], ignore_index=True)
+    combined[x_col] = combined[x_col].astype(str)  # Force string
     pivot = combined.pivot_table(index=[x_col, 'Periode'], columns='Gruppetype_std', values=y_col, aggfunc='sum', fill_value=0, observed=True).reset_index()
     fig = go.Figure()
     x_categories = pivot[x_col].unique()
@@ -346,20 +331,20 @@ def create_comparison_stacked_bar(data_p1, data_p2, x_col, y_col, title, descrip
             p2_val = pivot[(pivot[x_col] == cat) & (pivot['Periode'] == 'P2')][gtype].values
             y_values.append(p1_val[0] if len(p1_val) > 0 else 0)
             y_values.append(p2_val[0] if len(p2_val) > 0 else 0)
-        fig.add_trace(go.Bar(name=gtype, x=x_labels, y=y_values, marker_color=COLORS.get(gtype, '#999999')))
+        fig.add_trace(go.Bar(name=gtype, x=x_labels, y=y_values, marker_color=COLORS[gtype]))
     fig.update_layout(title=title, xaxis_title=x_col, yaxis_title='Antal', barmode='stack', height=500, showlegend=True,
-                     xaxis=dict(tickangle=-45), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                     xaxis=dict(tickangle=-45, type='category'), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     return fig, description
 
 def create_simple_bar_chart(data, x_col, y_col, title, description):
     if data.empty:
         return None, description
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=data[x_col], y=data[y_col], marker_color=COLORS["DGE"]))
-    fig.update_layout(title=title, xaxis_title=x_col, yaxis_title=y_col, height=500)
+    fig.add_trace(go.Bar(x=data[x_col].astype(str), y=data[y_col], marker_color=COLORS["DGE"]))
+    fig.update_layout(title=title, xaxis_title=x_col, yaxis_title=y_col, height=500, xaxis=dict(type='category'))
     return fig, description
 
-# PDF
+# PDF generation (same as before)
 def generate_pdf_with_charts(all_charts, period_info):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=landscape(A4))
@@ -409,7 +394,7 @@ def generate_pdf_with_charts(all_charts, period_info):
     buffer.seek(0)
     return buffer
 
-# MAIN APP
+# MAIN APP (rest of code continues with same structure as before...)
 st.set_page_config(page_title=TEXTS["app_title"], layout="wide")
 
 def main():
@@ -486,7 +471,6 @@ def main():
     start_dt = datetime.combine(start_date, datetime.min.time())
     end_dt = datetime.combine(end_date, datetime.max.time())
     
-    # Filtrer aktive grupper
     groups_df_active = groups_df.copy()
     if 'Dato for arkivering' in groups_df_active.columns:
         groups_df_active = groups_df_active[
@@ -549,7 +533,7 @@ def main():
         fig, desc = create_stacked_bar_chart(status_p1, 'Status_mapped', 'Antal', TEXTS["table1_title"], TEXTS["table1_desc"],
                                            ordered_categories=['Godkendt', 'Afventer', 'Afholdt u. godk.', 'Afvist', 'Andet'])
     if fig:
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table1_title"], TEXTS["table1_desc"]))
     
     # Tabel 2
@@ -563,7 +547,7 @@ def main():
     else:
         fig, desc = create_stacked_bar_chart(weekday_p1, 'Ugedag', 'Antal', TEXTS["table2_title"], TEXTS["table2_desc"], ordered_categories=weekday_order)
     if fig:
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table2_title"], TEXTS["table2_desc"]))
     
     # Tabel 3
@@ -573,7 +557,7 @@ def main():
     types_p1.columns = ['Mødetype', 'Antal']
     fig, desc = create_simple_bar_chart(types_p1, 'Mødetype', 'Antal', TEXTS["table3_title"], TEXTS["table3_desc"])
     if fig:
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table3_title"], TEXTS["table3_desc"]))
     
     # Tabel 4
@@ -587,7 +571,7 @@ def main():
     else:
         fig, desc = create_stacked_bar_chart(participants_p1, 'Deltagerkategori', 'Antal', TEXTS["table4_title"], TEXTS["table4_desc"], ordered_categories=participant_order)
     if fig:
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table4_title"], TEXTS["table4_desc"]))
     
     # TABEL 5 - FIXED
@@ -597,7 +581,7 @@ def main():
     size_order = ['1-4', '5-6', '7-8', '9-10', '11-12', '13-14', '15+']
     fig, desc = create_stacked_bar_chart(size_dist, 'Størrelseskategori', 'Antal', TEXTS["table5_title"], TEXTS["table5_desc"], ordered_categories=size_order)
     if fig:
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table5_title"], TEXTS["table5_desc"]))
     
     # TABEL 6 - FIXED
@@ -607,7 +591,7 @@ def main():
     activity_order = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+']
     fig, desc = create_stacked_bar_chart(activity, 'Mødekategori', 'Antal_grupper', TEXTS["table6_title"], TEXTS["table6_desc"], ordered_categories=activity_order)
     if fig:
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table6_title"], TEXTS["table6_desc"]))
     
     # TABEL 7 - FIXED
@@ -616,7 +600,7 @@ def main():
     groups_per_member = analyze_groups_per_member(seats_df)
     fig, desc = create_simple_bar_chart(groups_per_member, 'Antal grupper', 'Antal medlemmer', TEXTS["table7_title"], TEXTS["table7_desc"])
     if fig:
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table7_title"], TEXTS["table7_desc"]))
     
     # Tabel 8
@@ -626,7 +610,7 @@ def main():
     if not member_types.empty:
         fig = px.pie(member_types, names='Medlemstype', values='Antal', title=TEXTS["table8_title"], hole=0.3)
         fig.update_layout(height=500)
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table8_title"], TEXTS["table8_desc"]))
     
     # Tabel 9
@@ -634,7 +618,7 @@ def main():
     st.caption(TEXTS["table9_desc"])
     few_meetings = analyze_groups_with_few_meetings(groups_df_active, meetings_p1, start_dt, end_dt)
     if not few_meetings.empty:
-        st.dataframe(few_meetings, width='stretch')
+        st.dataframe(few_meetings, use_container_width=True)
     else:
         st.success("Alle grupper har mindst 4 møder!")
     
@@ -643,7 +627,7 @@ def main():
     st.caption(TEXTS["table10_desc"])
     closed = analyze_closed_groups(groups_df, start_dt, end_dt)
     if not closed.empty:
-        st.dataframe(closed, width='stretch')
+        st.dataframe(closed, use_container_width=True)
     else:
         st.success("Ingen grupper lukket!")
     
