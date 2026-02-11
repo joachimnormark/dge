@@ -569,10 +569,7 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
             y -= 16
             c.setFont("Helvetica", 10)
             for _, row in subg.sort_values('Gruppenavn').iterrows():
-                if y < 120:
-                    c.showPage()
-                    c.setFont("Helvetica", 10)
-                    y = height - 50
+                # --- Tegn gruppelinje med Supervisor, gruppetype, antal og lukke‑label i egen kolonne ---
                 gruppenavn = str(row.get('Gruppenavn', ''))
                 antal = str(row.get('Antal_møder', '0'))
                 vejl = str(row.get('Supervisor', '')).strip() if 'Supervisor' in row.index else ""
@@ -583,7 +580,7 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
                 if len(display_name) > 45:
                     display_name = display_name[:42] + "..."
 
-                # Tjek om gruppen er arkiveret i perioden eller efter perioden
+                # Bestem label og type (lukket i perioden / lukket efter perioden)
                 arkiv_dato = row.get('Dato for arkivering', pd.NaT)
                 is_closed_in_period = False
                 is_closed_after = False
@@ -595,67 +592,33 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
                         ad = pd.to_datetime(arkiv_dato)
                         if sd <= ad <= ed:
                             is_closed_in_period = True
-                            closed_label = f" (Lukket {ad.strftime('%d-%m-%Y')})"
+                            closed_label = f"Lukket {ad.strftime('%d-%m-%Y')}"
                         elif ad > ed:
                             is_closed_after = True
-                            closed_label = f" (LUKKET EFTER PERIODEN {ad.strftime('%d-%m-%Y')})"
+                            closed_label = f"LUKKET EFTER PERIODEN {ad.strftime('%d-%m-%Y')}"
                 except Exception:
                     is_closed_in_period = False
                     is_closed_after = False
                     closed_label = ""
 
-
-            # --- Tegn gruppelinje med Supervisor, gruppetype, antal og lukke‑label i egen kolonne ---
-            gruppenavn = str(row.get('Gruppenavn', ''))
-            antal = str(row.get('Antal_møder', '0'))
-            vejl = str(row.get('Supervisor', '')).strip() if 'Supervisor' in row.index else ""
-            if vejl:
-                display_name = f"{gruppenavn} ({vejl})"
-            else:
-                display_name = gruppenavn
-            if len(display_name) > 45:
-                display_name = display_name[:42] + "..."
-
-            # Bestem label og type (lukket i perioden / lukket efter perioden)
-            arkiv_dato = row.get('Dato for arkivering', pd.NaT)
-            is_closed_in_period = False
-            is_closed_after = False
-            closed_label = ""
-            try:
-                if pd.notna(arkiv_dato) and start_date is not None and end_date is not None:
-                    sd = pd.to_datetime(start_date)
-                    ed = pd.to_datetime(end_date)
-                    ad = pd.to_datetime(arkiv_dato)
-                    if sd <= ad <= ed:
-                        is_closed_in_period = True
-                        closed_label = f"Lukket {ad.strftime('%d-%m-%Y')}"
-                    elif ad > ed:
-                        is_closed_after = True
-                        closed_label = f"LUKKET EFTER PERIODEN {ad.strftime('%d-%m-%Y')}"
-            except Exception:
-                is_closed_in_period = False
-                is_closed_after = False
-                closed_label = ""
-
-            # Tegn kolonner: Gruppenavn (venstre), Gruppetype (midten), Lukke‑label (fast kolonne), Antal (højre)
-            c.setFillColorRGB(0, 0, 0)
-            c.drawString(50, y, display_name)            # Gruppenavn + Supervisor
-            c.drawString(350, y, gtype)                  # Gruppetype (fast kolonne)
-            label_x = 470                                # Fast kolonne til label (undgår overlap)
-            if is_closed_in_period or is_closed_after:
-                if is_closed_in_period:
-                    c.setFillColorRGB(0.8, 0.0, 0.0)    # rød
-                else:
-                    c.setFillColorRGB(0.85, 0.45, 0.0) # orange
-                c.setFont("Helvetica-Bold", 10)
-                c.drawString(label_x, y, f"({closed_label})")
-                c.setFont("Helvetica", 10)
+                # Tegn kolonner: Gruppenavn (venstre), Gruppetype (midten), Lukke‑label (fast kolonne), Antal (højre)
                 c.setFillColorRGB(0, 0, 0)
-            c.drawString(520, y, antal)                 # Antal møder (højre kolonne)
+                c.drawString(50, y, display_name)            # Gruppenavn + Supervisor
+                c.drawString(350, y, gtype)                  # Gruppetype (fast kolonne)
+                label_x = 470                                # Fast kolonne til label (undgår overlap)
+                if is_closed_in_period or is_closed_after:
+                    if is_closed_in_period:
+                        c.setFillColorRGB(0.8, 0.0, 0.0)    # rød
+                    else:
+                        c.setFillColorRGB(0.85, 0.45, 0.0)  # orange
+                    c.setFont("Helvetica-Bold", 10)
+                    c.drawString(label_x, y, f"({closed_label})")
+                    c.setFont("Helvetica", 10)
+                    c.setFillColorRGB(0, 0, 0)
+                c.drawString(520, y, antal)                 # Antal møder (højre kolonne)
 
-            # Giv lidt ekstra lodret plads før vi lister møder (undgår overlap)
+                # Giv lidt ekstra lodret plads før vi lister møder (undgår overlap)
                 y -= 18
-
 
 
                 # list møder for denne gruppe (fra df)
