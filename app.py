@@ -654,7 +654,7 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
             c.drawString(520, y, antal)                 # Antal møder (højre kolonne)
 
             # Giv lidt ekstra lodret plads før vi lister møder (undgår overlap)
-            y -= 18
+                y -= 18
 
 
 
