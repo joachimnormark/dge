@@ -608,10 +608,45 @@ def main():
     st.caption(TEXTS["table8_desc"])
     member_types = analyze_member_types(seats_df)
     if not member_types.empty:
-        fig = px.pie(member_types, names='Medlemstype', values='Antal', title=TEXTS["table8_title"], hole=0.3)
+        # --- Erstat den eksisterende px.pie(...) blok med denne ---
+# Byg en farvemapping fra din COLORS dict, og tilføj fallback farver
+        fallback_colors = ['#FFD700', '#8A2BE2', '#00CED1', '#FF8C00', '#A9A9A9']
+        color_map = {
+            'DGE': COLORS.get('DGE'),
+            'Supervision': COLORS.get('Supervision'),
+            'Junior': COLORS.get('Junior'),
+        }
+# Hvis der er flere medlemstyper end de tre, brug fallback rækkefølge
+# Map hver kategori i member_types til en farve
+        unique_clusters = member_types['Medlemstype'].astype(str).unique().tolist()
+        color_discrete_map = {}
+        fallback_idx = 0
+        for cluster in unique_clusters:
+            if cluster in color_map and color_map[cluster]:
+                color_discrete_map[cluster] = color_map[cluster]
+            else:
+                color_discrete_map[cluster] = fallback_colors[fallback_idx % len(fallback_colors)]
+                fallback_idx += 1
+
+        fig = px.pie(
+            member_types,
+            names='Medlemstype',
+            values='Antal',
+            title=TEXTS["table8_title"],
+            hole=0.3,
+            color_discrete_map=color_discrete_map
+        )
+# Gør slices tydelige i PNG/PDF ved at tilføje en hvid kantlinje
+        fig.update_traces(textinfo='percent+label', marker=dict(line=dict(color='#FFFFFF', width=1)))
         fig.update_layout(height=500)
-        st.plotly_chart(fig, use_container_width=True)
-        all_charts.append((fig, TEXTS["table8_title"], TEXTS["table8_desc"]))
+# --- slut erstatning ---
+
+        
+        
+      # fig = px.pie(member_types, names='Medlemstype', values='Antal', title=TEXTS["table8_title"], hole=0.3)
+      # fig.update_layout(height=500)
+      # st.plotly_chart(fig, use_container_width=True)
+      # all_charts.append((fig, TEXTS["table8_title"], TEXTS["table8_desc"]))
     
     # Tabel 9
     st.subheader(TEXTS["table9_title"])
