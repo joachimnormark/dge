@@ -45,7 +45,7 @@ COLORS = {
     "Supervision": "#DC143C",
     "Junior": "#228B22",
     # Member type colors (til Tabel 8)
-    "Praktiserende læger": "#1f77b4",
+    "Praktiserende læger": "#34eb3a",
     "§-ansatte, vikarer mv": "#ff7f0e",
     "Uddannelseslæger": "#2ca02c",
     "Ej registreret": "#9467bd",
