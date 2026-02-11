@@ -707,5 +707,18 @@ def main():
             except Exception as e:
                 st.error(f"PDF-fejl: {e}")
 
+    # NY knap: hent detaljer (kun godkendte møder)
+    if st.button("Hent detaljer", key="hent_detaljer"):
+        with st.spinner("Genererer detaljeret mødeliste..."):
+            period_str = f"{start_date.strftime('%d-%m-%Y')} til {end_date.strftime('%d-%m-%Y')}"
+            try:
+                # Brug kun godkendte møder: meetings_p1 (som du allerede har i main)
+                pdf_buf = generate_pdf_details(meetings_p1, period_str, start_date=start_dt, end_date=end_dt)
+                st.download_button("Download detaljer (PDF)", data=pdf_buf, file_name=f"DGE_detaljer_{period_str}.pdf", mime="application/pdf")
+            except Exception as e:
+                st.error(f"Fejl ved generering af detaljer: {e}")
+
+
+
 if __name__ == "__main__":
     main()
