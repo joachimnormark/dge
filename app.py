@@ -552,13 +552,15 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
         c.setFont("Helvetica", 10)
         y = height - 80
 
-        # Kolonneoverskrifter
+                # Kolonneoverskrifter (opdateret x‑positioner så de matcher rækkerne)
         c.setFont("Helvetica-Bold", 11)
         c.drawString(50, y, "Gruppenavn (Supervisor)")
-        c.drawString(350, y, "Gruppetype")
-        c.drawString(520, y, "Antal møder")
+        c.drawString(360, y, "Status")        # lukke‑label kolonne
+        c.drawString(470, y, "Gruppetype")    # flyttet til x=470
+        c.drawString(620, y, "Antal møder")   # flyttet til x=620
         y -= 18
         c.setFont("Helvetica", 10)
+
 
         for gtype in group_order:
             subg = cat_groups[cat_groups['Gruppetype_std'] == gtype].copy()
