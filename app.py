@@ -41,16 +41,17 @@ TEXTS = {
 }
 
 COLORS = {
-    "DGE": "#4169E1",
-    "Supervision": "#DC143C",
-    "Junior": "#228B22",
-    # Member type colors (til Tabel 8)
-    "Praktiserende læger": "#1e27e3",
-    "§-ansatte, vikarer mv": "#ff7f0e",
-    "Uddannelseslæger": "#2ca02c",
-    "Ej registreret": "#9467bd",
-    "Andre": "#8c564b"
+    # Gruppetyper
+    "DGE": "#2B6CB0",           # kølig blå (autoritet, ro)
+    "Supervision": "#C53030",   # dyb rød (kontrast, opmærksomhed)
+    "Junior": "#2F855A",        # dæmpet grøn (balance, friskhed)
+    "Praktiserende læger": "#1F77B4",      # klassisk blå
+    "§-ansatte, vikarer mv": "#FF7F0E",    # varm orange
+    "Uddannelseslæger": "#2CA02C",         # klar grøn
+    "Ej registreret": "#9467BD",           # lilla, neutral men tydelig
+    "Andre": "#8C564B"                     # brunlig, afdæmpet
 }
+
 
 
 # Utilities
