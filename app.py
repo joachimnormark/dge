@@ -583,35 +583,42 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
                 if len(display_name) > 45:
                     display_name = display_name[:42] + "..."
 
-                # Tjek om gruppen er arkiveret i perioden
+                # Tjek om gruppen er arkiveret i perioden eller efter perioden
                 arkiv_dato = row.get('Dato for arkivering', pd.NaT)
-                is_closed = False
+                is_closed_in_period = False
+                is_closed_after = False
                 closed_label = ""
                 try:
                     if pd.notna(arkiv_dato) and start_date is not None and end_date is not None:
                         sd = pd.to_datetime(start_date)
                         ed = pd.to_datetime(end_date)
-                        if sd <= pd.to_datetime(arkiv_dato) <= ed:
-                            is_closed = True
-                            closed_label = f" (Lukket {pd.to_datetime(arkiv_dato).strftime('%d-%m-%Y')})"
+                        ad = pd.to_datetime(arkiv_dato)
+                        if sd <= ad <= ed:
+                            is_closed_in_period = True
+                            closed_label = f" (Lukket {ad.strftime('%d-%m-%Y')})"
+                        elif ad > ed:
+                            is_closed_after = True
+                            closed_label = f" (LUKKET EFTER PERIODEN {ad.strftime('%d-%m-%Y')})"
                 except Exception:
-                    is_closed = False
+                    is_closed_in_period = False
+                    is_closed_after = False
                     closed_label = ""
 
-                # Tegn gruppenavn; hvis lukket, skriv lukket‑label i rød
+
+               # Tegn gruppenavn; hvis lukket, skriv lukket‑label i farve afhængig af type
                 c.setFillColorRGB(0, 0, 0)
                 c.drawString(50, y, display_name)
-                if is_closed:
+                if is_closed_in_period or is_closed_after:
                     label_x = 50 + min(len(display_name), 45) * 6
-                    c.setFillColorRGB(0.8, 0.0, 0.0)
+                    if is_closed_in_period:
+                        c.setFillColorRGB(0.8, 0.0, 0.0)  # mørk rød
+                    else:
+                        c.setFillColorRGB(0.85, 0.45, 0.0)  # orange (lukket efter perioden)
                     c.setFont("Helvetica-Bold", 10)
                     c.drawString(label_x, y, closed_label)
                     c.setFont("Helvetica", 10)
                     c.setFillColorRGB(0, 0, 0)
 
-                c.drawString(350, y, gtype)
-                c.drawString(520, y, antal)
-                y -= 14
 
                 # list møder for denne gruppe (fra df)
                 group_meetings = df[df['Gruppenavn'] == row['Gruppenavn']].sort_values('Starttidspunkt')
