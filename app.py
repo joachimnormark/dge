@@ -603,7 +603,7 @@ def main():
     activity_order = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+']
     fig, desc = create_stacked_bar_chart(activity, 'Mødekategori', 'Antal_grupper', TEXTS["table6_title"], TEXTS["table6_desc"], ordered_categories=activity_order)
     if fig:
-        fig.update_layout(xaxis_title='Antal møder pr. gruppe')
+        fig.update_layout(xaxis_title='Antal møder i perioden')
         fig.update_layout(yaxis_title='Antal grupper') 
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table6_title"], TEXTS["table6_desc"]))
