@@ -406,6 +406,128 @@ def generate_pdf_with_charts(all_charts, period_info):
     buffer.seek(0)
     return buffer
 
+def generate_pdf_details(meetings_df, period_info, start_date=None, end_date=None):
+    """
+    Genererer en PDF med lister over godkendte møder opdelt efter deltagerkategorier.
+    meetings_df: DataFrame med godkendte møder (forvent kolonner: Starttidspunkt, Gruppenavn, Mødetype, Antal deltagere, Gruppetype_std)
+    period_info: streng til forside (fx "01-01-2025 til 31-12-2025")
+    start_date, end_date: optional filter (datetime eller date)
+    """
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=landscape(A4))
+    width, height = landscape(A4)
+
+    # Forside
+    c.setFont("Helvetica-Bold", 20)
+    c.drawString(50, height - 100, "DGE detaljeret mødeliste")
+    c.setFont("Helvetica", 12)
+    c.drawString(50, height - 130, f"Periode: {period_info}")
+    c.drawString(50, height - 150, f"Genereret: {datetime.now().strftime('%d-%m-%Y %H:%M')}")
+    c.showPage()
+
+    if meetings_df is None or meetings_df.empty:
+        c.setFont("Helvetica", 12)
+        c.drawString(50, height - 100, "Ingen møder at vise.")
+        c.save()
+        buffer.seek(0)
+        return buffer
+
+    df = meetings_df.copy()
+
+    # Sørg for datetime og gruppetype
+    if 'Starttidspunkt' in df.columns:
+        df['Starttidspunkt'] = pd.to_datetime(df['Starttidspunkt'], errors='coerce')
+    if 'Gruppetype_std' not in df.columns and 'Gruppetyper' in df.columns:
+        df['Gruppetype_std'] = df['Gruppetyper'].apply(standardize_group_type)
+    df['Gruppetype_std'] = df['Gruppetype_std'].astype(str).str.strip()
+
+    # Filtrer på periode hvis givet
+    if start_date is not None and end_date is not None:
+        try:
+            sd = pd.to_datetime(start_date)
+            ed = pd.to_datetime(end_date)
+            df = df[(df['Starttidspunkt'] >= sd) & (df['Starttidspunkt'] <= ed)]
+        except Exception:
+            pass
+
+    # Deltagerkategorier som i Tabel 4
+    bins = [0, 4, 7, 10, 13, 999]
+    labels = ['1-4', '5-7', '8-10', '11-13', '14+']
+    if 'Antal deltagere' in df.columns:
+        df['Deltagerkategori'] = pd.cut(df['Antal deltagere'], bins=bins, labels=labels, right=True).astype(str)
+    else:
+        df['Deltagerkategori'] = 'Ukendt'
+
+    # Ønsket grupperekkefølge
+    group_order = ['DGE', 'Supervision', 'Junior', 'Andre']
+
+    # For hver deltagerkategori: lav en side med liste opdelt efter gruppetype
+    for cat in labels:
+        cat_df = df[df['Deltagerkategori'] == cat].copy()
+        if cat_df.empty:
+            continue
+
+        # Side header
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(50, height - 50, f"Møder med {cat} deltagere")
+        c.setFont("Helvetica", 10)
+        y = height - 80
+
+        # Kolonneoverskrifter
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(50, y, "Dato")
+        c.drawString(150, y, "Gruppenavn")
+        c.drawString(420, y, "Mødetype")
+        c.drawString(620, y, "Antal deltagere")
+        y -= 18
+        c.setFont("Helvetica", 10)
+
+        # Gennemgå i ønsket grupperekkefølge
+        for gtype in group_order:
+            sub = cat_df[cat_df['Gruppetype_std'] == gtype].copy()
+            if sub.empty:
+                continue
+
+            # Underoverskrift for gruppetype
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(50, y, f"{gtype}")
+            y -= 16
+            c.setFont("Helvetica", 10)
+
+            # Sorter efter dato
+            sub = sub.sort_values('Starttidspunkt')
+            for _, row in sub.iterrows():
+                if y < 60:
+                    c.showPage()
+                    c.setFont("Helvetica", 10)
+                    y = height - 50
+                date_str = ""
+                if pd.notna(row.get('Starttidspunkt')):
+                    try:
+                        date_str = pd.to_datetime(row['Starttidspunkt']).strftime('%d-%m-%Y %H:%M')
+                    except Exception:
+                        date_str = str(row.get('Starttidspunkt'))
+                gruppenavn = str(row.get('Gruppenavn', ''))
+                moedetype = str(row.get('Mødetype', ''))
+                antal = str(row.get('Antal deltagere', ''))
+                if len(gruppenavn) > 35:
+                    gruppenavn = gruppenavn[:32] + "..."
+                if len(moedetype) > 30:
+                    moedetype = moedetype[:27] + "..."
+                c.drawString(50, y, date_str)
+                c.drawString(150, y, gruppenavn)
+                c.drawString(420, y, moedetype)
+                c.drawString(620, y, antal)
+                y -= 14
+            y -= 8  # ekstra mellem gruppetyper
+        c.showPage()
+
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+
+
 # MAIN APP (rest of code continues with same structure as before...)
 st.set_page_config(page_title=TEXTS["app_title"], layout="wide")
 
