@@ -12,7 +12,7 @@ from reportlab.lib.utils import ImageReader
 from PIL import Image
 
 # ============================================================================
-# TEKST KONFIGURATION - Rediger tekster her
+# CONFIGURATION
 # ============================================================================
 
 TEXTS = {
@@ -22,7 +22,6 @@ TEXTS = {
     "period_header": "Vælg analyseperiode",
     "compare_checkbox": "Sammenlign med samme periode sidste år",
     
-    # Tabel titler og beskrivelser
     "table1_title": "Tabel 1: Mødestatistik - Total og fordeling på status",
     "table1_desc": "Viser antal møder fordelt på godkendelsestatus og gruppetype.",
     
@@ -54,29 +53,23 @@ TEXTS = {
     "table10_desc": "Oversigt over grupper der er blevet arkiveret/lukket i den valgte periode.",
 }
 
-# Farveskema - KONSISTENT
 COLORS = {
-    "DGE": "#4169E1",           # Blå
-    "Supervision": "#DC143C",   # Rød
-    "Junior": "#228B22",        # Grøn
-    "P1": "#4169E1",
-    "P2": "#87CEEB",
+    "DGE": "#4169E1",
+    "Supervision": "#DC143C",
+    "Junior": "#228B22",
 }
 
 # ============================================================================
-# HJÆLPEFUNKTIONER
+# UTILITIES
 # ============================================================================
 
 def parse_danish_date(date_str):
-    """Parser danske datoformater"""
     if pd.isna(date_str) or str(date_str).strip() in ['-', '', 'nan', 'NaT']:
         return pd.NaT
-    
     if isinstance(date_str, datetime):
         return date_str
     
-    date_str = str(date_str).strip()
-    date_str = date_str.replace('kl.', '').replace('Kl.', '').replace(',', '')
+    date_str = str(date_str).strip().replace('kl.', '').replace('Kl.', '').replace(',', '')
     
     months = {
         'januar': '01', 'februar': '02', 'marts': '03', 'april': '04',
@@ -96,20 +89,28 @@ def parse_danish_date(date_str):
         return pd.NaT
 
 def identify_dataframe_type(df):
-    """Identificer hvilken type dataframe det er"""
     columns = set(df.columns)
-    
     if 'Gruppenavn' in columns and 'Gruppetyper' in columns and 'Antal medlemmer' in columns:
         return 'groups'
     elif 'Medlemskaber' in columns and 'Stillingsbetegnelse' in columns:
         return 'seats'
     elif 'Mødetype' in columns and 'Starttidspunkt' in columns and 'Status' in columns:
         return 'meetings'
-    else:
-        return 'unknown'
+    return 'unknown'
+
+def standardize_group_type(gtype):
+    if pd.isna(gtype):
+        return "Andre"
+    gtype = str(gtype).strip()
+    if "DGE" in gtype:
+        return "DGE"
+    elif "Supervision" in gtype:
+        return "Supervision"
+    elif "Junior" in gtype:
+        return "Junior"
+    return "Andre"
 
 def categorize_member_type(member_type):
-    """Kategoriser medlemstyper i clusters"""
     if pd.isna(member_type) or str(member_type).strip() == "":
         return "Ej registreret"
     
@@ -147,70 +148,37 @@ def categorize_member_type(member_type):
     
     return "Andre"
 
-def get_group_type_from_meeting(meetings_df, group_df):
-    """Map møder til gruppetype"""
-    if meetings_df is None or group_df is None:
-        return meetings_df
-    
-    df = meetings_df.copy()
-    group_types = group_df[['Gruppenavn', 'Gruppetyper']].drop_duplicates()
-    df = df.merge(group_types, on='Gruppenavn', how='left')
-    
-    # Standardiser gruppetype
-    def standardize_type(gtype):
-        if pd.isna(gtype):
-            return "Andre"
-        gtype = str(gtype).strip()
-        if "DGE" in gtype or "dge" in gtype.lower():
-            return "DGE"
-        elif "Supervision" in gtype or "supervision" in gtype.lower():
-            return "Supervision"
-        elif "Junior" in gtype or "junior" in gtype.lower():
-            return "Junior"
-        else:
-            return "Andre"
-    
-    df['Gruppetype_std'] = df['Gruppetyper'].apply(standardize_type)
-    return df
-
 def filter_gruppeledere(df, group_name_col='Gruppenavn'):
-    """Filtrer Gruppeledere"""
     if df is None or df.empty:
         return df
     return df[df[group_name_col].astype(str).str.strip().str.lower() != 'gruppeledere'].copy()
 
 def filter_members_gruppeledere(seats_df):
-    """Filtrer medlemskaber i Gruppeledere"""
     if seats_df is None or seats_df.empty:
         return seats_df
     
     df = seats_df.copy()
     if 'Medlemskaber' in df.columns:
         df['Medlemskaber'] = df['Medlemskaber'].astype(str).apply(
-            lambda x: ','.join([g.strip() for g in x.split(',') if 'gruppeledere' not in g.lower()])
+            lambda x: ','.join([g.strip() for g in x.split(',') if g.strip() and 'gruppeledere' not in g.lower()])
         )
     return df
 
-def filter_active_groups(groups_df, period_start):
-    """Filtrer grupper der var aktive ved periodens start"""
-    if groups_df is None or groups_df.empty:
-        return groups_df
+def get_group_type_from_meeting(meetings_df, group_df):
+    if meetings_df is None or group_df is None:
+        return meetings_df
     
-    df = groups_df.copy()
-    
-    # Fjern grupper arkiveret INDEN periode start
-    if 'Dato for arkivering' in df.columns:
-        mask = df['Dato for arkivering'].isna() | (df['Dato for arkivering'] >= period_start)
-        df = df[mask]
-    
+    df = meetings_df.copy()
+    group_types = group_df[['Gruppenavn', 'Gruppetyper']].drop_duplicates()
+    df = df.merge(group_types, on='Gruppenavn', how='left')
+    df['Gruppetype_std'] = df['Gruppetyper'].apply(standardize_group_type)
     return df
 
 # ============================================================================
-# ANALYSE FUNKTIONER MED GRUPPETYPE-OPDELING
+# ANALYSIS FUNCTIONS
 # ============================================================================
 
 def analyze_meeting_status_by_type(meetings_df):
-    """Møder fordelt på status OG gruppetype"""
     if meetings_df is None or meetings_df.empty:
         return pd.DataFrame()
     
@@ -226,14 +194,10 @@ def analyze_meeting_status_by_type(meetings_df):
     
     df = meetings_df.copy()
     df['Status_mapped'] = df['Status'].map(status_map).fillna('Andet')
-    
-    # Group by status og gruppetype
     result = df.groupby(['Status_mapped', 'Gruppetype_std']).size().reset_index(name='Antal')
-    
     return result
 
 def analyze_weekday_by_type(meetings_df):
-    """Ugedage fordelt på gruppetype"""
     if meetings_df is None or meetings_df.empty:
         return pd.DataFrame()
     
@@ -246,13 +210,10 @@ def analyze_weekday_by_type(meetings_df):
     }
     
     df['Ugedag'] = df['Weekday'].map(weekday_map)
-    
     result = df.groupby(['Ugedag', 'Gruppetype_std']).size().reset_index(name='Antal')
-    
     return result
 
 def analyze_participants_by_type(meetings_df):
-    """Deltagere fordelt på clusters og gruppetype"""
     if meetings_df is None or meetings_df.empty:
         return pd.DataFrame()
     
@@ -261,95 +222,92 @@ def analyze_participants_by_type(meetings_df):
     
     df = meetings_df.copy()
     df['Deltagerkategori'] = pd.cut(df['Antal deltagere'], bins=bins, labels=labels, right=True)
-    
     result = df.groupby(['Deltagerkategori', 'Gruppetype_std']).size().reset_index(name='Antal')
-    
     return result
 
-def analyze_group_size_by_type(groups_df):
-    """Gruppestørrelse clusters fordelt på type - KUN aktive grupper"""
+# PROBLEM 2 FIX: Gruppestørrelse - baseret direkte på groups_df
+def analyze_group_size_by_type(groups_df, period_start):
+    """Analyser gruppestørrelse direkte fra groups dataframe"""
     if groups_df is None or groups_df.empty:
         return pd.DataFrame()
     
     df = groups_df.copy()
     
+    # Filtrer grupper arkiveret INDEN periodens start
+    if 'Dato for arkivering' in df.columns:
+        df = df[df['Dato for arkivering'].isna() | (df['Dato for arkivering'] >= period_start)]
+    
     if 'Antal medlemmer' not in df.columns or 'Gruppetyper' not in df.columns:
         return pd.DataFrame()
     
+    # Kategoriser størrelse
     bins = [0, 4, 6, 8, 10, 12, 14, 999]
     labels = ['1-4', '5-6', '7-8', '9-10', '11-12', '13-14', '15+']
-    
     df['Størrelseskategori'] = pd.cut(df['Antal medlemmer'], bins=bins, labels=labels, right=True)
     
     # Standardiser gruppetype
-    def standardize_type(gtype):
-        if pd.isna(gtype):
-            return "Andre"
-        gtype = str(gtype).strip()
-        if "DGE" in gtype:
-            return "DGE"
-        elif "Supervision" in gtype:
-            return "Supervision"
-        elif "Junior" in gtype:
-            return "Junior"
-        else:
-            return "Andre"
+    df['Gruppetype_std'] = df['Gruppetyper'].apply(standardize_group_type)
     
-    df['Gruppetype_std'] = df['Gruppetyper'].apply(standardize_type)
-    
+    # Tæl
     result = df.groupby(['Størrelseskategori', 'Gruppetype_std']).size().reset_index(name='Antal')
     
     return result
 
+# PROBLEM 3 FIX: Gruppernes mødeaktivitet - sikre ALLE kategorier vises
 def analyze_group_meeting_activity(groups_df, meetings_df):
-    """Gruppernes mødeaktivitet - antal møder per gruppe - INKL 0 møder"""
-    if groups_df is None or meetings_df is None or groups_df.empty:
+    """Analyser antal møder per gruppe - INKL grupper med 0 møder"""
+    if groups_df is None or groups_df.empty:
         return pd.DataFrame()
     
     # Tæl møder per gruppe
-    if not meetings_df.empty:
-        meeting_counts = meetings_df.groupby('Gruppenavn').size().reset_index(name='Antal_møder')
+    if meetings_df is not None and not meetings_df.empty:
+        meeting_counts = meetings_df.groupby('Gruppenavn').size().to_dict()
     else:
-        meeting_counts = pd.DataFrame(columns=['Gruppenavn', 'Antal_møder'])
+        meeting_counts = {}
     
-    # Merge med groups for gruppetype - LEFT join for at få alle grupper
-    result = groups_df[['Gruppenavn', 'Gruppetyper']].merge(
-        meeting_counts, on='Gruppenavn', how='left'
-    )
+    # Tilføj møde-counts til alle grupper
+    df = groups_df[['Gruppenavn', 'Gruppetyper']].copy()
+    df['Antal_møder'] = df['Gruppenavn'].map(meeting_counts).fillna(0).astype(int)
     
-    result['Antal_møder'] = result['Antal_møder'].fillna(0).astype(int)
-    
-    # Kategoriser antal møder - ALLE TAL fra 0 til 10+
+    # Kategoriser
     def categorize_meetings(n):
         if n >= 10:
             return '10+'
-        else:
-            return str(int(n))
+        return str(int(n))
     
-    result['Mødekategori'] = result['Antal_møder'].apply(categorize_meetings)
+    df['Mødekategori'] = df['Antal_møder'].apply(categorize_meetings)
+    df['Gruppetype_std'] = df['Gruppetyper'].apply(standardize_group_type)
     
-    # Standardiser gruppetype
-    def standardize_type(gtype):
-        if pd.isna(gtype):
-            return "Andre"
-        gtype = str(gtype).strip()
-        if "DGE" in gtype:
-            return "DGE"
-        elif "Supervision" in gtype:
-            return "Supervision"
-        elif "Junior" in gtype:
-            return "Junior"
-        else:
-            return "Andre"
+    # Group
+    grouped = df.groupby(['Mødekategori', 'Gruppetype_std']).size().reset_index(name='Antal_grupper')
     
-    result['Gruppetype_std'] = result['Gruppetyper'].apply(standardize_type)
+    # KRITISK: Sikr ALLE kategorier er med (0-10+)
+    all_categories = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+']
+    all_types = ['DGE', 'Supervision', 'Junior']
     
-    grouped = result.groupby(['Mødekategori', 'Gruppetype_std']).size().reset_index(name='Antal_grupper')
+    # Lav komplet grid
+    complete_grid = []
+    for cat in all_categories:
+        for gtype in all_types:
+            existing = grouped[(grouped['Mødekategori'] == cat) & (grouped['Gruppetype_std'] == gtype)]
+            if len(existing) > 0:
+                complete_grid.append({
+                    'Mødekategori': cat,
+                    'Gruppetype_std': gtype,
+                    'Antal_grupper': existing['Antal_grupper'].values[0]
+                })
+            else:
+                complete_grid.append({
+                    'Mødekategori': cat,
+                    'Gruppetype_std': gtype,
+                    'Antal_grupper': 0
+                })
     
-    return grouped
+    return pd.DataFrame(complete_grid)
 
+# PROBLEM 4 FIX: Antal grupper per medlem - KUN hele tal
 def analyze_groups_per_member(seats_df):
-    """Antal grupper medlemmer er medlem af - KUN HELE TAL"""
+    """Tæl hvor mange grupper hvert medlem er i - KUN HELE TAL"""
     if seats_df is None or seats_df.empty:
         return pd.DataFrame()
     
@@ -358,32 +316,39 @@ def analyze_groups_per_member(seats_df):
     if 'Medlemskaber' not in df.columns:
         return pd.DataFrame()
     
-    # Tæl antal grupper (komma-separeret)
-    df['Antal_grupper'] = df['Medlemskaber'].astype(str).apply(
-        lambda x: len([g.strip() for g in x.split(',') if g.strip() and g.strip().lower() != 'nan' and g.strip().lower() != ''])
-    )
+    # Tæl grupper per medlem
+    def count_groups(medlemskaber_str):
+        if pd.isna(medlemskaber_str):
+            return 0
+        s = str(medlemskaber_str).strip()
+        if s == '' or s.lower() == 'nan':
+            return 0
+        groups = [g.strip() for g in s.split(',') if g.strip() and g.strip().lower() != 'nan']
+        return len(groups)
     
-    # Kategoriser - KUN HELE TAL
+    df['Antal_grupper_int'] = df['Medlemskaber'].apply(count_groups)
+    
+    # Kategoriser - garanteret hele tal
     def categorize_groups(n):
-        if n >= 4:
+        n_int = int(n)
+        if n_int >= 4:
             return '4+'
-        else:
-            return str(int(n))
+        return str(n_int)
     
-    df['Gruppe_kategori'] = df['Antal_grupper'].apply(categorize_groups)
+    df['Gruppe_kategori'] = df['Antal_grupper_int'].apply(categorize_groups)
     
+    # Tæl
     result = df['Gruppe_kategori'].value_counts().reset_index()
     result.columns = ['Antal grupper', 'Antal medlemmer']
     
     # Sorter
     order = ['0', '1', '2', '3', '4+']
     result['Antal grupper'] = pd.Categorical(result['Antal grupper'], categories=order, ordered=True)
-    result = result.sort_values('Antal grupper')
+    result = result.sort_values('Antal grupper').reset_index(drop=True)
     
     return result
 
 def analyze_member_types(seats_df):
-    """Medlemstyper i clusters"""
     if seats_df is None or seats_df.empty:
         return pd.DataFrame()
     
@@ -392,17 +357,15 @@ def analyze_member_types(seats_df):
         return pd.DataFrame()
     
     df['Cluster'] = df['Stillingsbetegnelse'].apply(categorize_member_type)
-    
     result = df['Cluster'].value_counts().reset_index()
     result.columns = ['Medlemstype', 'Antal']
     return result
 
 def analyze_groups_with_few_meetings(groups_df, meetings_df, start_date, end_date):
-    """Grupper med <4 møder"""
-    if groups_df is None or meetings_df is None or groups_df.empty:
+    if groups_df is None or groups_df.empty:
         return pd.DataFrame()
     
-    if not meetings_df.empty:
+    if meetings_df is not None and not meetings_df.empty:
         meeting_counts = meetings_df.groupby('Gruppenavn').size().reset_index(name='Antal møder')
     else:
         meeting_counts = pd.DataFrame(columns=['Gruppenavn', 'Antal møder'])
@@ -419,16 +382,13 @@ def analyze_groups_with_few_meetings(groups_df, meetings_df, start_date, end_dat
     )
     
     result = result.sort_values('Antal møder', ascending=True)
-    
     return result[['Gruppenavn', 'Gruppetyper', 'Antal møder', 'Status', 'Arkiveret i periode']]
 
 def analyze_closed_groups(groups_df, start_date, end_date):
-    """Lukkede grupper"""
     if groups_df is None or groups_df.empty:
         return pd.DataFrame()
     
     df = groups_df.copy()
-    
     if 'Dato for arkivering' not in df.columns:
         return pd.DataFrame()
     
@@ -441,36 +401,37 @@ def analyze_closed_groups(groups_df, start_date, end_date):
     return result[['Gruppenavn', 'Gruppetyper', 'Dato for arkivering', 'Antal medlemmer']].sort_values('Dato for arkivering')
 
 # ============================================================================
-# VISUALISERING - STACKED BARS MED GRUPPETYPE-FARVER
+# VISUALIZATION
 # ============================================================================
 
 def create_stacked_bar_chart(data, x_col, y_col, title, description, ordered_categories=None):
-    """Stacked bar chart med DGE (blå nederst), SUP (rød), JUN (grøn)"""
+    """Stacked bar chart med DGE (nederst), SUP, JUN (øverst)"""
     if data.empty:
         return None, description
     
-    # Pivot data
     pivot = data.pivot_table(index=x_col, columns='Gruppetype_std', values=y_col, aggfunc='sum', fill_value=0)
     
-    # Sorter x-akse hvis ordered
+    # Sikr alle kategorier er med
     if ordered_categories:
-        # Sørg for alle kategorier er med, selv hvis de har 0
         for cat in ordered_categories:
             if cat not in pivot.index:
                 pivot.loc[cat] = 0
         pivot = pivot.reindex(ordered_categories)
     
+    # Sikr alle gruppetyper er kolonner
+    for gtype in ['DGE', 'Supervision', 'Junior']:
+        if gtype not in pivot.columns:
+            pivot[gtype] = 0
+    
     fig = go.Figure()
     
-    # Tilføj i rækkefølge: DGE (nederst), Supervision, Junior (øverst)
     for gtype in ['DGE', 'Supervision', 'Junior']:
-        if gtype in pivot.columns:
-            fig.add_trace(go.Bar(
-                name=gtype,
-                x=pivot.index,
-                y=pivot[gtype],
-                marker_color=COLORS.get(gtype, '#999999')
-            ))
+        fig.add_trace(go.Bar(
+            name=gtype,
+            x=pivot.index.astype(str),
+            y=pivot[gtype],
+            marker_color=COLORS.get(gtype, '#999999')
+        ))
     
     fig.update_layout(
         title=title,
@@ -485,20 +446,15 @@ def create_stacked_bar_chart(data, x_col, y_col, title, description, ordered_cat
     return fig, description
 
 def create_comparison_stacked_bar(data_p1, data_p2, x_col, y_col, title, description, ordered_categories=None):
-    """Sammenligning med stacked bars"""
     if data_p1.empty:
         return None, description
     
-    # Kombiner P1 og P2
     data_p1 = data_p1.copy()
     data_p2 = data_p2.copy()
-    
     data_p1['Periode'] = 'P1'
     data_p2['Periode'] = 'P2'
     
     combined = pd.concat([data_p1, data_p2], ignore_index=True)
-    
-    # Pivot
     pivot = combined.pivot_table(
         index=[x_col, 'Periode'], 
         columns='Gruppetype_std', 
@@ -509,7 +465,6 @@ def create_comparison_stacked_bar(data_p1, data_p2, x_col, y_col, title, descrip
     
     fig = go.Figure()
     
-    # For hver x-kategori, vis P1 og P2 side om side
     x_categories = pivot[x_col].unique()
     if ordered_categories:
         x_categories = [c for c in ordered_categories if c in x_categories]
@@ -519,7 +474,6 @@ def create_comparison_stacked_bar(data_p1, data_p2, x_col, y_col, title, descrip
         x_labels.append(f"{cat} P1")
         x_labels.append(f"{cat} P2")
     
-    # Build data for stacking
     for gtype in ['DGE', 'Supervision', 'Junior']:
         if gtype not in pivot.columns:
             continue
@@ -528,7 +482,6 @@ def create_comparison_stacked_bar(data_p1, data_p2, x_col, y_col, title, descrip
         for cat in x_categories:
             p1_val = pivot[(pivot[x_col] == cat) & (pivot['Periode'] == 'P1')][gtype].values
             p2_val = pivot[(pivot[x_col] == cat) & (pivot['Periode'] == 'P2')][gtype].values
-            
             y_values.append(p1_val[0] if len(p1_val) > 0 else 0)
             y_values.append(p2_val[0] if len(p2_val) > 0 else 0)
         
@@ -553,12 +506,10 @@ def create_comparison_stacked_bar(data_p1, data_p2, x_col, y_col, title, descrip
     return fig, description
 
 def create_simple_bar_chart(data, x_col, y_col, title, description):
-    """Simpel bar chart uden gruppetype-opdeling"""
     if data.empty:
         return None, description
     
     fig = go.Figure()
-    
     fig.add_trace(go.Bar(
         x=data[x_col],
         y=data[y_col],
@@ -575,47 +526,36 @@ def create_simple_bar_chart(data, x_col, y_col, title, description):
     return fig, description
 
 # ============================================================================
-# PDF GENERATION MED GRAFER
+# PDF GENERATION
 # ============================================================================
 
 def generate_pdf_with_charts(all_charts, period_info):
-    """Generér PDF med grafer"""
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=landscape(A4))
     width, height = landscape(A4)
     
-    # Forside
     c.setFont("Helvetica-Bold", 20)
     c.drawString(50, height - 100, "DGE Moede aktivitets-rapport")
     c.setFont("Helvetica", 12)
     c.drawString(50, height - 130, f"Periode: {period_info}")
     c.drawString(50, height - 150, f"Genereret: {datetime.now().strftime('%d-%m-%Y %H:%M')}")
-    
     c.showPage()
     
-    # Tilføj grafer som images
     for i, (fig, title, desc) in enumerate(all_charts):
         if fig is None:
             continue
         
         try:
-            # Export figure som PNG bytes
             img_bytes = fig.to_image(format="png", width=1000, height=500, engine='kaleido')
-            
-            # Åbn med PIL
             img = Image.open(io.BytesIO(img_bytes))
-            
-            # Gem til buffer
             img_buffer = io.BytesIO()
             img.save(img_buffer, format='PNG')
             img_buffer.seek(0)
             
-            # Tilføj til PDF
             c.setFont("Helvetica-Bold", 14)
             c.drawString(50, height - 50, title)
             c.setFont("Helvetica", 10)
             
-            # Wrap description
             desc_lines = []
             words = desc.split()
             current_line = ""
@@ -629,17 +569,13 @@ def generate_pdf_with_charts(all_charts, period_info):
                 desc_lines.append(current_line)
             
             y_pos = height - 70
-            for line in desc_lines[:2]:  # Max 2 linjer
+            for line in desc_lines[:2]:
                 c.drawString(50, y_pos, line)
                 y_pos -= 15
             
-            # Indsæt billede
             c.drawImage(ImageReader(img_buffer), 50, height - 500, width=700, height=350, preserveAspectRatio=True)
-            
             c.showPage()
         except Exception as e:
-            st.warning(f"Kunne ikke eksportere graf til PDF: {e}")
-            # Fallback - vis kun tekst
             c.setFont("Helvetica-Bold", 14)
             c.drawString(50, height - 100, title)
             c.setFont("Helvetica", 10)
@@ -659,7 +595,6 @@ st.set_page_config(page_title=TEXTS["app_title"], layout="wide")
 def main():
     st.title(TEXTS["app_title"])
     
-    # ========== FILE UPLOAD - ALLE 3 FILER PÅ EN GANG ==========
     st.header(TEXTS["upload_header"])
     
     uploaded_files = st.file_uploader(
@@ -669,10 +604,9 @@ def main():
     )
     
     if len(uploaded_files) != 3:
-        st.info("👆 Upload præcis 3 Excel-filer (grupper, medlemmer, møder)")
+        st.info("👆 Upload præcis 3 Excel-filer")
         return
     
-    # Identificer og load filer
     groups_df = None
     seats_df = None
     meetings_df = None
@@ -690,33 +624,26 @@ def main():
                 meetings_df = df
         
         if groups_df is None or seats_df is None or meetings_df is None:
-            st.error("Kunne ikke identificere alle 3 filer. Tjek at de indeholder de rigtige kolonner.")
+            st.error("Kunne ikke identificere filer")
             return
         
-        st.success(f"✅ Data indlæst: {len(groups_df)} grupper, {len(seats_df)} medlemmer, {len(meetings_df)} møder")
-    
+        st.success(f"✅ {len(groups_df)} grupper, {len(seats_df)} medlemmer, {len(meetings_df)} møder")
     except Exception as e:
-        st.error(f"Fejl ved indlæsning: {e}")
+        st.error(f"Fejl: {e}")
         return
     
-    # ========== DATA CLEANING ==========
-    
-    # Parse datoer
     if 'Starttidspunkt' in meetings_df.columns:
         meetings_df['Starttidspunkt'] = meetings_df['Starttidspunkt'].apply(parse_danish_date)
     
     if 'Dato for arkivering' in groups_df.columns:
         groups_df['Dato for arkivering'] = groups_df['Dato for arkivering'].apply(parse_danish_date)
     
-    # Filtrer Gruppeledere
     groups_df = filter_gruppeledere(groups_df)
     meetings_df = filter_gruppeledere(meetings_df)
     seats_df = filter_members_gruppeledere(seats_df)
     
-    # ========== SMART PERIODE-VALG ==========
     st.header(TEXTS["period_header"])
     
-    # Default til sidste hele år
     current_year = datetime.now().year
     last_year = current_year - 1
     
@@ -725,7 +652,8 @@ def main():
     with col_year:
         use_full_year = st.checkbox("Brug helt år", value=True)
         if use_full_year:
-            selected_year = st.selectbox("Vælg år", list(range(2020, current_year + 1)), index=list(range(2020, current_year + 1)).index(last_year))
+            selected_year = st.selectbox("Vælg år", list(range(2020, current_year + 1)), 
+                                        index=list(range(2020, current_year + 1)).index(last_year))
             start_date = datetime(selected_year, 1, 1).date()
             end_date = datetime(selected_year, 12, 31).date()
         else:
@@ -740,29 +668,30 @@ def main():
             with col_e:
                 end_date = st.date_input("Slutdato", value=datetime(last_year, 12, 31))
     else:
-        st.info(f"Valgt periode: {start_date.strftime('%d-%m-%Y')} til {end_date.strftime('%d-%m-%Y')}")
+        st.info(f"Periode: {start_date.strftime('%d-%m-%Y')} til {end_date.strftime('%d-%m-%Y')}")
     
     start_dt = datetime.combine(start_date, datetime.min.time())
     end_dt = datetime.combine(end_date, datetime.max.time())
     
-    # Filtrer grupper der var aktive ved periodens start
-    groups_df_active = filter_active_groups(groups_df, start_dt)
+    # Filtrer aktive grupper
+    groups_df_active = groups_df.copy()
+    if 'Dato for arkivering' in groups_df_active.columns:
+        groups_df_active = groups_df_active[
+            groups_df_active['Dato for arkivering'].isna() | 
+            (groups_df_active['Dato for arkivering'] >= start_dt)
+        ]
     
-    # Sammenligning
     compare_previous_year = st.checkbox(TEXTS["compare_checkbox"])
     
     if compare_previous_year:
         start_dt_p2 = start_dt - relativedelta(years=1)
         end_dt_p2 = end_dt - relativedelta(years=1)
     
-    # ========== FILTER DATA ==========
-    
     meetings_p1_all = meetings_df[
         (meetings_df['Starttidspunkt'] >= start_dt) & 
         (meetings_df['Starttidspunkt'] <= end_dt)
     ].copy()
     
-    # KUN GODKENDTE MØDER til metrics og analyser
     meetings_p1 = meetings_p1_all[
         meetings_p1_all['Status'].astype(str).str.strip().str.lower() == 'godkendt'
     ].copy()
@@ -778,10 +707,9 @@ def main():
         ].copy()
     
     if meetings_p1.empty and meetings_p1_all.empty:
-        st.warning("Ingen møder fundet i den valgte periode")
+        st.warning("Ingen møder")
         return
     
-    # Tilføj gruppetype til møder
     meetings_p1_all = get_group_type_from_meeting(meetings_p1_all, groups_df)
     meetings_p1 = get_group_type_from_meeting(meetings_p1, groups_df)
     
@@ -789,16 +717,13 @@ def main():
         meetings_p2_all = get_group_type_from_meeting(meetings_p2_all, groups_df)
         meetings_p2 = get_group_type_from_meeting(meetings_p2, groups_df)
     
-    # ========== ANALYSER OG VISUALISERINGER ==========
-    
     st.header("Analyseresultater")
     
-    # Metrics - KUN GODKENDTE MØDER
     col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
-        st.metric("Antal møder (godkendte, P1)", len(meetings_p1))
+        st.metric("Møder (godkendte, P1)", len(meetings_p1))
         if compare_previous_year:
-            st.metric("Antal møder (godkendte, P2)", len(meetings_p2))
+            st.metric("Møder (godkendte, P2)", len(meetings_p2))
     
     with col_m2:
         st.metric("Deltagerdage (godkendte, P1)", meetings_p1['Antal deltagere'].sum())
@@ -812,9 +737,9 @@ def main():
     
     st.markdown("---")
     
-    all_charts = []  # For PDF
+    all_charts = []
     
-    # TABEL 1: Mødestatistik - BRUGER ALLE MØDER (inkl. afviste)
+    # Tabel 1
     st.subheader(TEXTS["table1_title"])
     st.caption(TEXTS["table1_desc"])
     
@@ -838,12 +763,11 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table1_title"], TEXTS["table1_desc"]))
     
-    # TABEL 2: Ugedage - KUN GODKENDTE
+    # Tabel 2
     st.subheader(TEXTS["table2_title"])
     st.caption(TEXTS["table2_desc"])
     
     weekday_p1 = analyze_weekday_by_type(meetings_p1)
-    
     weekday_order = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag']
     
     if compare_previous_year:
@@ -864,7 +788,7 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table2_title"], TEXTS["table2_desc"]))
     
-    # TABEL 3: Mødetyper - KUN GODKENDTE
+    # Tabel 3
     st.subheader(TEXTS["table3_title"])
     st.caption(TEXTS["table3_desc"])
     
@@ -880,12 +804,11 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table3_title"], TEXTS["table3_desc"]))
     
-    # TABEL 4: Mødedeltagelse - KUN GODKENDTE
+    # Tabel 4
     st.subheader(TEXTS["table4_title"])
     st.caption(TEXTS["table4_desc"])
     
     participants_p1 = analyze_participants_by_type(meetings_p1)
-    
     participant_order = ['1-4', '5-7', '8-10', '11-13', '14+']
     
     if compare_previous_year:
@@ -906,12 +829,11 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table4_title"], TEXTS["table4_desc"]))
     
-    # TABEL 5: Gruppestørrelse - BRUGER groups_df_active (filtreret)
+    # TABEL 5 - FIXED
     st.subheader(TEXTS["table5_title"])
     st.caption(TEXTS["table5_desc"])
     
-    size_dist = analyze_group_size_by_type(groups_df_active)
-    
+    size_dist = analyze_group_size_by_type(groups_df_active, start_dt)
     size_order = ['1-4', '5-6', '7-8', '9-10', '11-12', '13-14', '15+']
     
     fig, desc = create_stacked_bar_chart(
@@ -924,13 +846,11 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table5_title"], TEXTS["table5_desc"]))
     
-    # TABEL 6: Gruppernes mødeaktivitet - KUN GODKENDTE
+    # TABEL 6 - FIXED
     st.subheader(TEXTS["table6_title"])
     st.caption(TEXTS["table6_desc"])
     
     activity = analyze_group_meeting_activity(groups_df_active, meetings_p1)
-    
-    # ALLE TAL fra 0 til 10+
     activity_order = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+']
     
     fig, desc = create_stacked_bar_chart(
@@ -943,7 +863,7 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table6_title"], TEXTS["table6_desc"]))
     
-    # TABEL 7: Antal grupper per medlem - KUN HELE TAL
+    # TABEL 7 - FIXED
     st.subheader(TEXTS["table7_title"])
     st.caption(TEXTS["table7_desc"])
     
@@ -958,7 +878,7 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table7_title"], TEXTS["table7_desc"]))
     
-    # TABEL 8: Medlemstyper
+    # Tabel 8
     st.subheader(TEXTS["table8_title"])
     st.caption(TEXTS["table8_desc"])
     
@@ -973,7 +893,7 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table8_title"], TEXTS["table8_desc"]))
     
-    # TABEL 9: Grupper med få møder - KUN GODKENDTE
+    # Tabel 9
     st.subheader(TEXTS["table9_title"])
     st.caption(TEXTS["table9_desc"])
     
@@ -982,9 +902,9 @@ def main():
     if not few_meetings.empty:
         st.dataframe(few_meetings, use_container_width=True)
     else:
-        st.success("Alle grupper har afholdt mindst 4 møder!")
+        st.success("Alle grupper har mindst 4 møder!")
     
-    # TABEL 10: Lukkede grupper
+    # Tabel 10
     st.subheader(TEXTS["table10_title"])
     st.caption(TEXTS["table10_desc"])
     
@@ -993,14 +913,14 @@ def main():
     if not closed.empty:
         st.dataframe(closed, use_container_width=True)
     else:
-        st.success("Ingen grupper blev lukket i perioden!")
+        st.success("Ingen grupper lukket!")
     
-    # ========== PDF DOWNLOAD ==========
+    # PDF
     st.markdown("---")
     st.header("📥 Download rapport")
     
-    if st.button("Generer PDF-rapport", type="primary"):
-        with st.spinner("Genererer PDF med grafer..."):
+    if st.button("Generer PDF", type="primary"):
+        with st.spinner("Genererer..."):
             period_str = f"{start_date.strftime('%d-%m-%Y')} til {end_date.strftime('%d-%m-%Y')}"
             
             try:
@@ -1013,10 +933,9 @@ def main():
                     mime="application/pdf"
                 )
                 
-                st.success("✅ PDF klar til download!")
+                st.success("✅ PDF klar!")
             except Exception as e:
-                st.error(f"Fejl ved PDF-generering: {e}")
-                st.info("Prøv at geninstallere: pip install kaleido --upgrade")
+                st.error(f"PDF-fejl: {e}")
 
 if __name__ == "__main__":
     main()
