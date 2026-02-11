@@ -350,7 +350,7 @@ def generate_pdf_with_charts(all_charts, period_info):
     c = canvas.Canvas(buffer, pagesize=landscape(A4))
     width, height = landscape(A4)
     c.setFont("Helvetica-Bold", 20)
-    c.drawString(50, height - 100, "DGE Moede aktivitets-rapport")
+    c.drawString(50, height - 100, "DGE aktivitets-rapport")
     c.setFont("Helvetica", 12)
     c.drawString(50, height - 130, f"Periode: {period_info}")
     c.drawString(50, height - 150, f"Genereret: {datetime.now().strftime('%d-%m-%Y %H:%M')}")
