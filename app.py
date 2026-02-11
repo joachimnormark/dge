@@ -503,7 +503,7 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
                 gruppenavn = str(row.get('Gruppenavn', ''))
                 vejl = str(row.get('Supervisor', '')).strip()
                 if vejl:
-                    display_name = f"{gruppenavn} (Supervisor: {vejl})"
+                    display_name = f"{gruppenavn} ({vejl})"
                 else:
                     display_name = gruppenavn
                 moedetype = str(row.get('Mødetype', ''))
@@ -577,7 +577,7 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
                 antal = str(row.get('Antal_møder', '0'))
                 vejl = str(row.get('Supervisor', '')).strip() if 'Supervisor' in row.index else ""
                 if vejl:
-                    display_name = f"{gruppenavn} (Supervisor: {vejl})"
+                    display_name = f"{gruppenavn} ({vejl})"
                 else:
                     display_name = gruppenavn
                 if len(display_name) > 45:
