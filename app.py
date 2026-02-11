@@ -570,41 +570,42 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
                     c.showPage()
                     c.setFont("Helvetica", 10)
                     y = height - 50
-            gruppenavn = str(row.get('Gruppenavn', ''))
-            antal = str(row.get('Antal_møder', '0'))
-            if len(gruppenavn) > 45:
-                gruppenavn = gruppenavn[:42] + "..."
 
-            # Tjek om gruppen er arkiveret i perioden
-            arkiv_dato = row.get('Dato for arkivering', pd.NaT)
-            is_closed = False
-            closed_label = ""
-            try:
-                if pd.notna(arkiv_dato) and start_date is not None and end_date is not None:
-                    sd = pd.to_datetime(start_date)
-                    ed = pd.to_datetime(end_date)
-                    if sd <= pd.to_datetime(arkiv_dato) <= ed:
-                        is_closed = True
-                        closed_label = f" (Lukket {pd.to_datetime(arkiv_dato).strftime('%d-%m-%Y')})"
-            except Exception:
+                gruppenavn = str(row.get('Gruppenavn', ''))
+                antal = str(row.get('Antal_møder', '0'))
+                if len(gruppenavn) > 45:
+                    gruppenavn = gruppenavn[:42] + "..."
+
+                # Tjek om gruppen er arkiveret i perioden
+                arkiv_dato = row.get('Dato for arkivering', pd.NaT)
                 is_closed = False
                 closed_label = ""
+                try:
+                    if pd.notna(arkiv_dato) and start_date is not None and end_date is not None:
+                        sd = pd.to_datetime(start_date)
+                        ed = pd.to_datetime(end_date)
+                        if sd <= pd.to_datetime(arkiv_dato) <= ed:
+                            is_closed = True
+                            closed_label = f" (Lukket {pd.to_datetime(arkiv_dato).strftime('%d-%m-%Y')})"
+                except Exception:
+                    is_closed = False
+                    closed_label = ""
 
-            # Tegn gruppenavn; hvis lukket, skriv lukket‑label i rød
-            c.setFillColorRGB(0, 0, 0)  # sort for normal tekst
-            c.drawString(50, y, gruppenavn)
-            if is_closed:
-                # Sæt rød farve for lukket‑label og tegn lige efter gruppenavnet
-                label_x = 50 + min(len(gruppenavn), 45) * 6  # grov beregning af x‑offset
-                c.setFillColorRGB(0.8, 0.0, 0.0)  # mørk rød
-                c.setFont("Helvetica-Bold", 10)
-                c.drawString(label_x, y, closed_label)
-                c.setFont("Helvetica", 10)
-                c.setFillColorRGB(0, 0, 0)  # reset til sort
-            c.drawString(350, y, gtype)
-            c.drawString(520, y, antal)
-            y -= 14
-                    
+                # Tegn gruppenavn; hvis lukket, skriv lukket‑label i rød
+                c.setFillColorRGB(0, 0, 0)
+                c.drawString(50, y, gruppenavn)
+                if is_closed:
+                    label_x = 50 + min(len(gruppenavn), 45) * 6
+                    c.setFillColorRGB(0.8, 0.0, 0.0)
+                    c.setFont("Helvetica-Bold", 10)
+                    c.drawString(label_x, y, closed_label)
+                    c.setFont("Helvetica", 10)
+                    c.setFillColorRGB(0, 0, 0)
+
+                c.drawString(350, y, gtype)
+                c.drawString(520, y, antal)
+                y -= 14
+
                 # list møder for denne gruppe (fra df)
                 group_meetings = df[df['Gruppenavn'] == row['Gruppenavn']].sort_values('Starttidspunkt')
                 for _, mrow in group_meetings.iterrows():
@@ -620,10 +621,10 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
                             date_str = str(mrow.get('Starttidspunkt'))
                     moedetype = str(mrow.get('Mødetype', ''))
                     antal_m = str(mrow.get('Antal deltagere', ''))
-                    # indrykning for møde‑linje
                     c.drawString(70, y, f"- {date_str} | {moedetype} | {antal_m}")
                     y -= 12
                 y -= 8
+
         c.showPage()
 
     # Gem og returner buffer
