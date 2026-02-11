@@ -615,48 +615,48 @@ def main():
         all_charts.append((fig, TEXTS["table7_title"], TEXTS["table7_desc"]))
 
     # Tabel 8
-st.subheader(TEXTS["table8_title"])
-st.caption(TEXTS["table8_desc"])
-member_types = analyze_member_types(seats_df)
-if not member_types.empty:
-    # Trim og hent unikke navne
-    member_types['Medlemstype'] = member_types['Medlemstype'].astype(str).str.strip()
-    unique_clusters = member_types['Medlemstype'].unique().tolist()
+    st.subheader(TEXTS["table8_title"])
+    st.caption(TEXTS["table8_desc"])
+    member_types = analyze_member_types(seats_df)
+    if not member_types.empty:
+        # Trim og hent unikke navne
+        member_types['Medlemstype'] = member_types['Medlemstype'].astype(str).str.strip()
+        unique_clusters = member_types['Medlemstype'].unique().tolist()
 
-    # Lav color_discrete_map ud fra COLORS og en fallback liste
-    fallback_colors = ['#FFD700', '#00CED1', '#FF8C00', '#A9A9A9']
-    color_discrete_map = {}
-    colors_list = []
-    fb_idx = 0
-    unmatched = []
-    for cluster in unique_clusters:
-        if cluster in COLORS and COLORS[cluster]:
-            color = COLORS[cluster]
-        else:
-            color = fallback_colors[fb_idx % len(fallback_colors)]
-            fb_idx += 1
-            unmatched.append(cluster)
-        color_discrete_map[cluster] = color
-        colors_list.append(color)
+        # Lav color_discrete_map ud fra COLORS og en fallback liste
+        fallback_colors = ['#FFD700', '#00CED1', '#FF8C00', '#A9A9A9']
+        color_discrete_map = {}
+        colors_list = []
+        fb_idx = 0
+        unmatched = []
+        for cluster in unique_clusters:
+            if cluster in COLORS and COLORS[cluster]:
+                color = COLORS[cluster]
+            else:
+                color = fallback_colors[fb_idx % len(fallback_colors)]
+                fb_idx += 1
+                unmatched.append(cluster)
+            color_discrete_map[cluster] = color
+            colors_list.append(color)
 
-    # Debug print (fjern eller kommenter ud i produktion)
-    if unmatched:
-        st.write("Debug: følgende Medlemstype navne brugte fallback farver:", unmatched)
+        # Debug print (fjern eller kommenter ud i produktion)
+        if unmatched:
+            st.write("Debug: følgende Medlemstype navne brugte fallback farver:", unmatched)
 
-    # Opret pie med eksplicit mapping og sæt marker.colors direkte
-    fig = px.pie(
-        member_types,
-        names='Medlemstype',
-        values='Antal',
-        title=TEXTS["table8_title"],
-        hole=0.3,
-        color_discrete_map=color_discrete_map
-    )
-    # Sæt marker.colors i samme rækkefølge som unique_clusters for at sikre eksport
-    fig.update_traces(textinfo='percent+label', marker=dict(colors=colors_list, line=dict(color='#FFFFFF', width=1)))
-    fig.update_layout(height=500)
-    st.plotly_chart(fig, use_container_width=True)
-    all_charts.append((fig, TEXTS["table8_title"], TEXTS["table8_desc"]))
+        # Opret pie med eksplicit mapping og sæt marker.colors direkte
+        fig = px.pie(
+            member_types,
+            names='Medlemstype',
+            values='Antal',
+            title=TEXTS["table8_title"],
+            hole=0.3,
+            color_discrete_map=color_discrete_map
+        )
+        # Sæt marker.colors i samme rækkefølge som unique_clusters for at sikre eksport
+        fig.update_traces(textinfo='percent+label', marker=dict(colors=colors_list, line=dict(color='#FFFFFF', width=1)))
+        fig.update_layout(height=500)
+        st.plotly_chart(fig, use_container_width=True)
+        all_charts.append((fig, TEXTS["table8_title"], TEXTS["table8_desc"]))
 
 
 
