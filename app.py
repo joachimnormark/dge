@@ -545,6 +545,8 @@ def main():
         fig, desc = create_stacked_bar_chart(status_p1, 'Status_mapped', 'Antal', TEXTS["table1_title"], TEXTS["table1_desc"],
                                            ordered_categories=['Godkendt', 'Afventer', 'Afholdt u. godk.', 'Afvist', 'Andet'])
     if fig:
+        fig.update_layout(xaxis_title='Mødestatus')
+        fig.update_layout(yaxis_title='Antal møder') 
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table1_title"], TEXTS["table1_desc"]))
     
@@ -559,6 +561,8 @@ def main():
     else:
         fig, desc = create_stacked_bar_chart(weekday_p1, 'Ugedag', 'Antal', TEXTS["table2_title"], TEXTS["table2_desc"], ordered_categories=weekday_order)
     if fig:
+        fig.update_layout(xaxis_title='Mødedag på ugen')
+        fig.update_layout(yaxis_title='Antal møder') 
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table2_title"], TEXTS["table2_desc"]))
     
@@ -569,6 +573,8 @@ def main():
     types_p1.columns = ['Mødetype', 'Antal']
     fig, desc = create_simple_bar_chart(types_p1, 'Mødetype', 'Antal', TEXTS["table3_title"], TEXTS["table3_desc"])
     if fig:
+        fig.update_layout(xaxis_title='Mødetype')
+        fig.update_layout(yaxis_title='Antal møder') 
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table3_title"], TEXTS["table3_desc"]))
     
@@ -583,6 +589,8 @@ def main():
     else:
         fig, desc = create_stacked_bar_chart(participants_p1, 'Deltagerkategori', 'Antal', TEXTS["table4_title"], TEXTS["table4_desc"], ordered_categories=participant_order)
     if fig:
+        fig.update_layout(xaxis_title='Antal mødedeltagere')
+        fig.update_layout(yaxis_title='Antal møder') 
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table4_title"], TEXTS["table4_desc"]))
     
@@ -593,6 +601,8 @@ def main():
     size_order = ['1-4', '5-6', '7-8', '9-10', '11-12', '13-14', '15+']
     fig, desc = create_stacked_bar_chart(size_dist, 'Størrelseskategori', 'Antal', TEXTS["table5_title"], TEXTS["table5_desc"], ordered_categories=size_order)
     if fig:
+        fig.update_layout(xaxis_title='Antal medlemmer i gruppen')
+        fig.update_layout(yaxis_title='Antal grupper') 
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table5_title"], TEXTS["table5_desc"]))
     
@@ -614,6 +624,8 @@ def main():
     groups_per_member = analyze_groups_per_member(seats_df)
     fig, desc = create_simple_bar_chart(groups_per_member, 'Antal grupper', 'Antal medlemmer', TEXTS["table7_title"], TEXTS["table7_desc"])
     if fig:
+        fig.update_layout(xaxis_title='Antal medlemsskaber (Gruppeledergruppe undtaget)')
+        fig.update_layout(yaxis_title='Antal medlemmer') 
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table7_title"], TEXTS["table7_desc"]))
 
