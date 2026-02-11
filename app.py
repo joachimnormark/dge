@@ -569,7 +569,7 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
             y -= 16
             c.setFont("Helvetica", 10)
             for _, row in subg.sort_values('Gruppenavn').iterrows():
-                # --- Tegn gruppelinje med Supervisor, gruppetype, antal og lukke‑label i egen kolonne ---
+        # --- Tegn gruppelinje: Gruppenavn, Lukke‑label (venstre), Gruppetype (midt), Antal (højre) ---
                 gruppenavn = str(row.get('Gruppenavn', ''))
                 antal = str(row.get('Antal_møder', '0'))
                 vejl = str(row.get('Supervisor', '')).strip() if 'Supervisor' in row.index else ""
@@ -601,11 +601,15 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
                     is_closed_after = False
                     closed_label = ""
 
-                # Tegn kolonner: Gruppenavn (venstre), Gruppetype (midten), Lukke‑label (fast kolonne), Antal (højre)
+                # Tegn kolonner i denne rækkefølge:
+                #  - Gruppenavn (x=50)
+                #  - Lukke‑label (x=360)  <- flyttet til venstre for gruppetype
+                #  - Gruppetype (x=470)
+                #  - Antal møder (x=620)
                 c.setFillColorRGB(0, 0, 0)
                 c.drawString(50, y, display_name)            # Gruppenavn + Supervisor
-                c.drawString(350, y, gtype)                  # Gruppetype (fast kolonne)
-                label_x = 470                                # Fast kolonne til label (undgår overlap)
+
+                label_x = 360
                 if is_closed_in_period or is_closed_after:
                     if is_closed_in_period:
                         c.setFillColorRGB(0.8, 0.0, 0.0)    # rød
@@ -615,10 +619,14 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
                     c.drawString(label_x, y, f"({closed_label})")
                     c.setFont("Helvetica", 10)
                     c.setFillColorRGB(0, 0, 0)
-                c.drawString(520, y, antal)                 # Antal møder (højre kolonne)
 
+                # Gruppetype og antal i faste kolonner
+                c.drawString(470, y, gtype)
+                c.drawString(620, y, antal)
+        
                 # Giv lidt ekstra lodret plads før vi lister møder (undgår overlap)
-                y -= 18
+                y -= 20
+
 
 
                 # list møder for denne gruppe (fra df)
