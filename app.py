@@ -406,11 +406,14 @@ def generate_pdf_with_charts(all_charts, period_info):
     buffer.seek(0)
     return buffer
 
-def generate_pdf_details(meetings_df, period_info, start_date=None, end_date=None):
+def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, end_date=None):
     """
-    Genererer en PDF med lister over godkendte møder opdelt efter deltagerkategorier.
-    meetings_df: DataFrame med godkendte møder (forvent kolonner: Starttidspunkt, Gruppenavn, Mødetype, Antal deltagere, Gruppetype_std)
-    period_info: streng til forside (fx "01-01-2025 til 31-12-2025")
+    Genererer en PDF med:
+      - lister over godkendte møder opdelt efter deltagerkategorier
+      - lister over grupper med 0..4 møder i perioden (Tabel 6 style)
+    meetings_df: DataFrame med godkendte møder (kolonner: Starttidspunkt, Gruppenavn, Mødetype, Antal deltagere, Gruppetype_std)
+    groups_df: DataFrame med grupper (kolonner: Gruppenavn, Gruppetyper, evt. Dato for arkivering)
+    period_info: streng til forside
     start_date, end_date: optional filter (datetime eller date)
     """
     buffer = io.BytesIO()
@@ -425,16 +428,10 @@ def generate_pdf_details(meetings_df, period_info, start_date=None, end_date=Non
     c.drawString(50, height - 150, f"Genereret: {datetime.now().strftime('%d-%m-%Y %H:%M')}")
     c.showPage()
 
-    if meetings_df is None or meetings_df.empty:
-        c.setFont("Helvetica", 12)
-        c.drawString(50, height - 100, "Ingen møder at vise.")
-        c.save()
-        buffer.seek(0)
-        return buffer
-
+    # --- Forbered meetings_df (kun godkendte forventes) ---
+    if meetings_df is None:
+        meetings_df = pd.DataFrame()
     df = meetings_df.copy()
-
-    # Sørg for datetime og gruppetype
     if 'Starttidspunkt' in df.columns:
         df['Starttidspunkt'] = pd.to_datetime(df['Starttidspunkt'], errors='coerce')
     if 'Gruppetype_std' not in df.columns and 'Gruppetyper' in df.columns:
@@ -458,16 +455,14 @@ def generate_pdf_details(meetings_df, period_info, start_date=None, end_date=Non
     else:
         df['Deltagerkategori'] = 'Ukendt'
 
-    # Ønsket grupperekkefølge
     group_order = ['DGE', 'Supervision', 'Junior', 'Andre']
 
-    # For hver deltagerkategori: lav en side med liste opdelt efter gruppetype
+    # --- Sektion A: mødelister efter deltagerkategori ---
     for cat in labels:
         cat_df = df[df['Deltagerkategori'] == cat].copy()
         if cat_df.empty:
             continue
 
-        # Side header
         c.setFont("Helvetica-Bold", 16)
         c.drawString(50, height - 50, f"Møder med {cat} deltagere")
         c.setFont("Helvetica", 10)
@@ -482,19 +477,14 @@ def generate_pdf_details(meetings_df, period_info, start_date=None, end_date=Non
         y -= 18
         c.setFont("Helvetica", 10)
 
-        # Gennemgå i ønsket grupperekkefølge
         for gtype in group_order:
             sub = cat_df[cat_df['Gruppetype_std'] == gtype].copy()
             if sub.empty:
                 continue
-
-            # Underoverskrift for gruppetype
             c.setFont("Helvetica-Bold", 11)
             c.drawString(50, y, f"{gtype}")
             y -= 16
             c.setFont("Helvetica", 10)
-
-            # Sorter efter dato
             sub = sub.sort_values('Starttidspunkt')
             for _, row in sub.iterrows():
                 if y < 60:
@@ -519,12 +509,128 @@ def generate_pdf_details(meetings_df, period_info, start_date=None, end_date=Non
                 c.drawString(420, y, moedetype)
                 c.drawString(620, y, antal)
                 y -= 14
-            y -= 8  # ekstra mellem gruppetyper
+            y -= 8
         c.showPage()
 
+    # --- Sektion B: grupper efter antal møder (0..4) baseret på meetings_df og groups_df ---
+    # Forbered grupper og tællinger
+    if groups_df is None:
+        groups_df = pd.DataFrame()
+    gdf = groups_df.copy()
+    # sikre kolonner
+    if 'Gruppenavn' not in gdf.columns:
+        gdf['Gruppenavn'] = []
+    # beregn mødetællinger per gruppe i perioden (kun godkendte møder i df)
+    meeting_counts = {}
+    if not df.empty:
+        meeting_counts = df.groupby('Gruppenavn').size().to_dict()
+    # map counts til grupper
+    gdf['Antal_møder'] = gdf['Gruppenavn'].map(meeting_counts).fillna(0).astype(int)
+    # kategoriser 0..4 (alt >=5 ignoreres her)
+    def cat_meetings(n):
+        return n if n <= 4 else None
+    gdf['Mødekategori'] = gdf['Antal_møder'].apply(lambda x: str(int(x)) if x <= 4 else None)
+    # tilføj standardiseret gruppetype
+    if 'Gruppetyper' in gdf.columns:
+        gdf['Gruppetype_std'] = gdf['Gruppetyper'].apply(standardize_group_type)
+    else:
+        gdf['Gruppetype_std'] = 'Andre'
+
+    # For hver kategori 0..4: lav liste og vis gruppens møder (samme layout)
+    for cat in ['0', '1', '2', '3', '4']:
+        cat_groups = gdf[gdf['Mødekategori'] == cat].copy()
+        if cat_groups.empty:
+            continue
+
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(50, height - 50, f"Grupper med {cat} møder i perioden")
+        c.setFont("Helvetica", 10)
+        y = height - 80
+
+        # Kolonneoverskrifter
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(50, y, "Gruppenavn")
+        c.drawString(350, y, "Gruppetype")
+        c.drawString(520, y, "Antal møder")
+        y -= 18
+        c.setFont("Helvetica", 10)
+
+        # Gennemgå i ønsket grupperekkefølge
+        for gtype in group_order:
+            subg = cat_groups[cat_groups['Gruppetype_std'] == gtype].copy()
+            if subg.empty:
+                continue
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(50, y, f"{gtype}")
+            y -= 16
+            c.setFont("Helvetica", 10)
+            # For hver gruppe: skriv navn og antal, og list møder (dato + mødetype + deltagere)
+            for _, row in subg.sort_values('Gruppenavn').iterrows():
+                if y < 120:
+                    c.showPage()
+                    c.setFont("Helvetica", 10)
+                    y = height - 50
+            gruppenavn = str(row.get('Gruppenavn', ''))
+            antal = str(row.get('Antal_møder', '0'))
+            if len(gruppenavn) > 45:
+                gruppenavn = gruppenavn[:42] + "..."
+
+            # Tjek om gruppen er arkiveret i perioden
+            arkiv_dato = row.get('Dato for arkivering', pd.NaT)
+            is_closed = False
+            closed_label = ""
+            try:
+                if pd.notna(arkiv_dato) and start_date is not None and end_date is not None:
+                    sd = pd.to_datetime(start_date)
+                    ed = pd.to_datetime(end_date)
+                    if sd <= pd.to_datetime(arkiv_dato) <= ed:
+                        is_closed = True
+                        closed_label = f" (Lukket {pd.to_datetime(arkiv_dato).strftime('%d-%m-%Y')})"
+            except Exception:
+                is_closed = False
+                closed_label = ""
+
+            # Tegn gruppenavn; hvis lukket, skriv lukket‑label i rød
+            c.setFillColorRGB(0, 0, 0)  # sort for normal tekst
+            c.drawString(50, y, gruppenavn)
+            if is_closed:
+                # Sæt rød farve for lukket‑label og tegn lige efter gruppenavnet
+                label_x = 50 + min(len(gruppenavn), 45) * 6  # grov beregning af x‑offset
+                c.setFillColorRGB(0.8, 0.0, 0.0)  # mørk rød
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(label_x, y, closed_label)
+                c.setFont("Helvetica", 10)
+                c.setFillColorRGB(0, 0, 0)  # reset til sort
+            c.drawString(350, y, gtype)
+            c.drawString(520, y, antal)
+            y -= 14
+                    
+                # list møder for denne gruppe (fra df)
+                group_meetings = df[df['Gruppenavn'] == row['Gruppenavn']].sort_values('Starttidspunkt')
+                for _, mrow in group_meetings.iterrows():
+                    if y < 60:
+                        c.showPage()
+                        c.setFont("Helvetica", 10)
+                        y = height - 50
+                    date_str = ""
+                    if pd.notna(mrow.get('Starttidspunkt')):
+                        try:
+                            date_str = pd.to_datetime(mrow['Starttidspunkt']).strftime('%d-%m-%Y %H:%M')
+                        except Exception:
+                            date_str = str(mrow.get('Starttidspunkt'))
+                    moedetype = str(mrow.get('Mødetype', ''))
+                    antal_m = str(mrow.get('Antal deltagere', ''))
+                    # indrykning for møde‑linje
+                    c.drawString(70, y, f"- {date_str} | {moedetype} | {antal_m}")
+                    y -= 12
+                y -= 8
+        c.showPage()
+
+    # Gem og returner buffer
     c.save()
     buffer.seek(0)
     return buffer
+
 
 
 
@@ -606,6 +712,12 @@ def main():
     end_dt = datetime.combine(end_date, datetime.max.time())
     
     groups_df_active = groups_df.copy()
+    # Konverter 'Dato for arkivering' til datetime og sørg for kolonnen findes
+    if 'Dato for arkivering' in groups_df_active.columns:
+        groups_df_active['Dato for arkivering'] = pd.to_datetime(groups_df_active['Dato for arkivering'], errors='coerce')
+    else:
+        groups_df_active['Dato for arkivering'] = pd.NaT
+
     if 'Dato for arkivering' in groups_df_active.columns:
         groups_df_active = groups_df_active[
             groups_df_active['Dato for arkivering'].isna() | 
@@ -829,16 +941,17 @@ def main():
             except Exception as e:
                 st.error(f"PDF-fejl: {e}")
 
-    # NY knap: hent detaljer (kun godkendte møder)
+    # NY knap: hent detaljer (kun godkendte møder + grupper 0..4)
     if st.button("Hent detaljer", key="hent_detaljer"):
         with st.spinner("Genererer detaljeret mødeliste..."):
             period_str = f"{start_date.strftime('%d-%m-%Y')} til {end_date.strftime('%d-%m-%Y')}"
             try:
-                # Brug kun godkendte møder: meetings_p1 (som du allerede har i main)
-                pdf_buf = generate_pdf_details(meetings_p1, period_str, start_date=start_dt, end_date=end_dt)
+                # meetings_p1 er allerede godkendte møder i main
+                pdf_buf = generate_pdf_details(meetings_p1, groups_df_active, period_str, start_date=start_dt, end_date=end_dt)
                 st.download_button("Download detaljer (PDF)", data=pdf_buf, file_name=f"DGE_detaljer_{period_str}.pdf", mime="application/pdf")
             except Exception as e:
                 st.error(f"Fejl ved generering af detaljer: {e}")
+
 
 
 
