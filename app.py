@@ -819,7 +819,7 @@ def main():
     if fig:
         fig.update_layout(xaxis_title='Mødestatus')
         fig.update_layout(yaxis_title='Antal møder') 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         all_charts.append((fig, TEXTS["table1_title"], TEXTS["table1_desc"]))
     
     # Tabel 2
@@ -835,7 +835,7 @@ def main():
     if fig:
         fig.update_layout(xaxis_title='Mødedag på ugen')
         fig.update_layout(yaxis_title='Antal møder') 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         all_charts.append((fig, TEXTS["table2_title"], TEXTS["table2_desc"]))
     
     # Tabel 3
@@ -847,7 +847,7 @@ def main():
     if fig:
         fig.update_layout(xaxis_title='Mødetype')
         fig.update_layout(yaxis_title='Antal møder') 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         all_charts.append((fig, TEXTS["table3_title"], TEXTS["table3_desc"]))
     
     # Tabel 4
@@ -863,7 +863,7 @@ def main():
     if fig:
         fig.update_layout(xaxis_title='Antal mødedeltagere')
         fig.update_layout(yaxis_title='Antal møder') 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         all_charts.append((fig, TEXTS["table4_title"], TEXTS["table4_desc"]))
     
     # TABEL 5 - FIXED
@@ -875,7 +875,7 @@ def main():
     if fig:
         fig.update_layout(xaxis_title='Antal medlemmer i gruppen')
         fig.update_layout(yaxis_title='Antal grupper') 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         all_charts.append((fig, TEXTS["table5_title"], TEXTS["table5_desc"]))
     
     # TABEL 6 - FIXED
@@ -887,7 +887,7 @@ def main():
     if fig:
         fig.update_layout(xaxis_title='Antal møder i perioden')
         fig.update_layout(yaxis_title='Antal grupper') 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         all_charts.append((fig, TEXTS["table6_title"], TEXTS["table6_desc"]))
     
     # TABEL 7 - FIXED
@@ -898,7 +898,7 @@ def main():
     if fig:
         fig.update_layout(xaxis_title='Antal medlemsskaber (Gruppeledergruppe undtaget)')
         fig.update_layout(yaxis_title='Antal medlemmer') 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         all_charts.append((fig, TEXTS["table7_title"], TEXTS["table7_desc"]))
 
     # Tabel 8
@@ -942,7 +942,7 @@ def main():
         # Sæt marker.colors i samme rækkefølge som unique_clusters for at sikre eksport
         fig.update_traces(textinfo='percent+label', marker=dict(colors=colors_list, line=dict(color='#FFFFFF', width=1)))
         fig.update_layout(height=500)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         all_charts.append((fig, TEXTS["table8_title"], TEXTS["table8_desc"]))
 
 
@@ -953,7 +953,7 @@ def main():
     st.caption(TEXTS["table9_desc"])
     few_meetings = analyze_groups_with_few_meetings(groups_df_active, meetings_p1, start_dt, end_dt)
     if not few_meetings.empty:
-        st.dataframe(few_meetings, use_container_width=True)
+        st.dataframe(few_meetings, width="stretch")
     else:
         st.success("Alle grupper har mindst 4 møder!")
     
@@ -962,7 +962,7 @@ def main():
     st.caption(TEXTS["table10_desc"])
     closed = analyze_closed_groups(groups_df, start_dt, end_dt)
     if not closed.empty:
-        st.dataframe(closed, use_container_width=True)
+        st.dataframe(closed, width="stretch")
     else:
         st.success("Ingen grupper lukket!")
     
