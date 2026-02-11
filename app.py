@@ -40,7 +40,18 @@ TEXTS = {
     "table10_desc": "Oversigt over grupper der er blevet arkiveret/lukket.",
 }
 
-COLORS = {"DGE": "#4169E1", "Supervision": "#DC143C", "Junior": "#228B22"}
+COLORS = {
+    "DGE": "#4169E1",
+    "Supervision": "#DC143C",
+    "Junior": "#228B22",
+    # Member type colors (til Tabel 8)
+    "Praktiserende læger": "#1f77b4",
+    "§-ansatte, vikarer mv": "#ff7f0e",
+    "Uddannelseslæger": "#2ca02c",
+    "Ej registreret": "#9467bd",
+    "Andre": "#8c564b"
+}
+
 
 # Utilities
 def parse_danish_date(date_str):
@@ -603,28 +614,23 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table7_title"], TEXTS["table7_desc"]))
     
-   # Tabel 8
+  # Tabel 8
     st.subheader(TEXTS["table8_title"])
     st.caption(TEXTS["table8_desc"])
     member_types = analyze_member_types(seats_df)
     if not member_types.empty:
-        # Byg en farvemapping fra din COLORS dict, og tilføj fallback farver
-        fallback_colors = ['#FFD700', '#8A2BE2', '#00CED1', '#FF8C00', '#A9A9A9']
-        base_map = {
-            'DGE': COLORS.get('DGE'),
-            'Supervision': COLORS.get('Supervision'),
-            'Junior': COLORS.get('Junior'),
-        }
+        # Brug COLORS direkte til at lave en color_discrete_map for præcis farvetildeling
         unique_clusters = member_types['Medlemstype'].astype(str).unique().tolist()
         color_discrete_map = {}
-        fallback_idx = 0
+        fallback_colors = ['#FFD700', '#00CED1', '#FF8C00', '#A9A9A9']
+        fb_idx = 0
         for cluster in unique_clusters:
-            if cluster in base_map and base_map[cluster]:
-                color_discrete_map[cluster] = base_map[cluster]
+            if cluster in COLORS and COLORS[cluster]:
+                color_discrete_map[cluster] = COLORS[cluster]
             else:
-                color_discrete_map[cluster] = fallback_colors[fallback_idx % len(fallback_colors)]
-                fallback_idx += 1
-    
+                color_discrete_map[cluster] = fallback_colors[fb_idx % len(fallback_colors)]
+                fb_idx += 1
+
         fig = px.pie(
             member_types,
             names='Medlemstype',
@@ -633,11 +639,12 @@ def main():
             hole=0.3,
             color_discrete_map=color_discrete_map
         )
-        # Sørg for tydelig kantlinje så slices ikke smelter sammen i PNG/PDF
+        # Hvid kantlinje gør slices tydelige i PNG/PDF
         fig.update_traces(textinfo='percent+label', marker=dict(line=dict(color='#FFFFFF', width=1)))
         fig.update_layout(height=500)
         st.plotly_chart(fig, use_container_width=True)
         all_charts.append((fig, TEXTS["table8_title"], TEXTS["table8_desc"]))
+
 
     
     # Tabel 9
