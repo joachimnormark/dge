@@ -411,8 +411,8 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
     Genererer en PDF med:
       - lister over godkendte møder opdelt efter deltagerkategorier
       - lister over grupper med 0..4 møder i perioden (Tabel 6 style)
-    meetings_df: DataFrame med godkendte møder (kolonner: Starttidspunkt, Gruppenavn, Mødetype, Antal deltagere, Gruppetype_std)
-    groups_df: DataFrame med grupper (kolonner: Gruppenavn, Gruppetyper, evt. Dato for arkivering)
+    meetings_df: DataFrame med godkendte møder
+    groups_df: DataFrame med grupper (indeholder 'Supervisor' og evt. 'Dato for arkivering')
     period_info: streng til forside
     start_date, end_date: optional filter (datetime eller date)
     """
@@ -434,9 +434,12 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
     df = meetings_df.copy()
     if 'Starttidspunkt' in df.columns:
         df['Starttidspunkt'] = pd.to_datetime(df['Starttidspunkt'], errors='coerce')
-    if 'Gruppetype_std' not in df.columns and 'Gruppetyper' in df.columns:
-        df['Gruppetype_std'] = df['Gruppetyper'].apply(standardize_group_type)
-    df['Gruppetype_std'] = df['Gruppetype_std'].astype(str).str.strip()
+
+    # Merge Supervisor ind i mødedata så hver møderække får en 'Supervisor' kolonne
+    if 'Supervisor' in groups_df.columns:
+        df = df.merge(groups_df[['Gruppenavn', 'Supervisor']].drop_duplicates(), on='Gruppenavn', how='left')
+    else:
+        df['Supervisor'] = ""
 
     # Filtrer på periode hvis givet
     if start_date is not None and end_date is not None:
@@ -471,7 +474,7 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
         # Kolonneoverskrifter
         c.setFont("Helvetica-Bold", 11)
         c.drawString(50, y, "Dato")
-        c.drawString(150, y, "Gruppenavn")
+        c.drawString(150, y, "Gruppenavn (Supervisor)")
         c.drawString(420, y, "Mødetype")
         c.drawString(620, y, "Antal deltagere")
         y -= 18
@@ -498,14 +501,17 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
                     except Exception:
                         date_str = str(row.get('Starttidspunkt'))
                 gruppenavn = str(row.get('Gruppenavn', ''))
+                vejl = str(row.get('Supervisor', '')).strip()
+                if vejl:
+                    display_name = f"{gruppenavn} (Supervisor: {vejl})"
+                else:
+                    display_name = gruppenavn
                 moedetype = str(row.get('Mødetype', ''))
                 antal = str(row.get('Antal deltagere', ''))
-                if len(gruppenavn) > 35:
-                    gruppenavn = gruppenavn[:32] + "..."
-                if len(moedetype) > 30:
-                    moedetype = moedetype[:27] + "..."
+                if len(display_name) > 45:
+                    display_name = display_name[:42] + "..."
                 c.drawString(50, y, date_str)
-                c.drawString(150, y, gruppenavn)
+                c.drawString(150, y, display_name)
                 c.drawString(420, y, moedetype)
                 c.drawString(620, y, antal)
                 y -= 14
@@ -513,24 +519,23 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
         c.showPage()
 
     # --- Sektion B: grupper efter antal møder (0..4) baseret på meetings_df og groups_df ---
-    # Forbered grupper og tællinger
     if groups_df is None:
         groups_df = pd.DataFrame()
     gdf = groups_df.copy()
-    # sikre kolonner
-    if 'Gruppenavn' not in gdf.columns:
-        gdf['Gruppenavn'] = []
+
+    # Konverter 'Dato for arkivering' til datetime hvis findes
+    if 'Dato for arkivering' in gdf.columns:
+        gdf['Dato for arkivering'] = pd.to_datetime(gdf['Dato for arkivering'], errors='coerce')
+    else:
+        gdf['Dato for arkivering'] = pd.NaT
+
     # beregn mødetællinger per gruppe i perioden (kun godkendte møder i df)
     meeting_counts = {}
     if not df.empty:
         meeting_counts = df.groupby('Gruppenavn').size().to_dict()
-    # map counts til grupper
+
     gdf['Antal_møder'] = gdf['Gruppenavn'].map(meeting_counts).fillna(0).astype(int)
-    # kategoriser 0..4 (alt >=5 ignoreres her)
-    def cat_meetings(n):
-        return n if n <= 4 else None
     gdf['Mødekategori'] = gdf['Antal_møder'].apply(lambda x: str(int(x)) if x <= 4 else None)
-    # tilføj standardiseret gruppetype
     if 'Gruppetyper' in gdf.columns:
         gdf['Gruppetype_std'] = gdf['Gruppetyper'].apply(standardize_group_type)
     else:
@@ -549,13 +554,12 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
 
         # Kolonneoverskrifter
         c.setFont("Helvetica-Bold", 11)
-        c.drawString(50, y, "Gruppenavn")
+        c.drawString(50, y, "Gruppenavn (Supervisor)")
         c.drawString(350, y, "Gruppetype")
         c.drawString(520, y, "Antal møder")
         y -= 18
         c.setFont("Helvetica", 10)
 
-        # Gennemgå i ønsket grupperekkefølge
         for gtype in group_order:
             subg = cat_groups[cat_groups['Gruppetype_std'] == gtype].copy()
             if subg.empty:
@@ -564,17 +568,20 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
             c.drawString(50, y, f"{gtype}")
             y -= 16
             c.setFont("Helvetica", 10)
-            # For hver gruppe: skriv navn og antal, og list møder (dato + mødetype + deltagere)
             for _, row in subg.sort_values('Gruppenavn').iterrows():
                 if y < 120:
                     c.showPage()
                     c.setFont("Helvetica", 10)
                     y = height - 50
-
                 gruppenavn = str(row.get('Gruppenavn', ''))
                 antal = str(row.get('Antal_møder', '0'))
-                if len(gruppenavn) > 45:
-                    gruppenavn = gruppenavn[:42] + "..."
+                vejl = str(row.get('Supervisor', '')).strip() if 'Supervisor' in row.index else ""
+                if vejl:
+                    display_name = f"{gruppenavn} (Supervisor: {vejl})"
+                else:
+                    display_name = gruppenavn
+                if len(display_name) > 45:
+                    display_name = display_name[:42] + "..."
 
                 # Tjek om gruppen er arkiveret i perioden
                 arkiv_dato = row.get('Dato for arkivering', pd.NaT)
@@ -593,9 +600,9 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
 
                 # Tegn gruppenavn; hvis lukket, skriv lukket‑label i rød
                 c.setFillColorRGB(0, 0, 0)
-                c.drawString(50, y, gruppenavn)
+                c.drawString(50, y, display_name)
                 if is_closed:
-                    label_x = 50 + min(len(gruppenavn), 45) * 6
+                    label_x = 50 + min(len(display_name), 45) * 6
                     c.setFillColorRGB(0.8, 0.0, 0.0)
                     c.setFont("Helvetica-Bold", 10)
                     c.drawString(label_x, y, closed_label)
@@ -624,7 +631,6 @@ def generate_pdf_details(meetings_df, groups_df, period_info, start_date=None, e
                     c.drawString(70, y, f"- {date_str} | {moedetype} | {antal_m}")
                     y -= 12
                 y -= 8
-
         c.showPage()
 
     # Gem og returner buffer
@@ -668,6 +674,15 @@ def main():
             return
         
         st.success(f"✅ {len(groups_df)} grupper, {len(seats_df)} medlemmer, {len(meetings_df)} møder")
+        # --- Sørg for at Supervisor-kolonnen findes og trim værdier --- 671-678 indsat
+        groups_df.columns = [c.strip() for c in groups_df.columns]
+        if 'Supervisor' not in groups_df.columns:
+            # opret tom kolonne hvis ikke til stede for at undgå KeyError senere
+            groups_df['Supervisor'] = ""
+        else:
+            # trim whitespace i Supervisor-kolonnen
+            groups_df['Supervisor'] = groups_df['Supervisor'].astype(str).str.strip()
+
     except Exception as e:
         st.error(f"Fejl: {e}")
         return
@@ -713,6 +728,12 @@ def main():
     end_dt = datetime.combine(end_date, datetime.max.time())
     
     groups_df_active = groups_df.copy()
+    # Konverter 'Dato for arkivering' til datetime og sørg for kolonnen findes
+    if 'Dato for arkivering' in groups_df_active.columns:
+        groups_df_active['Dato for arkivering'] = pd.to_datetime(groups_df_active['Dato for arkivering'], errors='coerce')
+    else:
+        groups_df_active['Dato for arkivering'] = pd.NaT
+
     # Konverter 'Dato for arkivering' til datetime og sørg for kolonnen findes
     if 'Dato for arkivering' in groups_df_active.columns:
         groups_df_active['Dato for arkivering'] = pd.to_datetime(groups_df_active['Dato for arkivering'], errors='coerce')
