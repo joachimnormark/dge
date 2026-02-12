@@ -982,7 +982,7 @@ def main():
                 st.error(f"PDF-fejl: {e}")
 
     # NY knap: hent detaljer (kun godkendte møder + grupper 0..4)
-    if st.button("Hent detaljeret PDF", key="hent_detaljer"):
+    if st.button("Hent PDF med detaljer", key="hent_detaljer"):
         with st.spinner("Genererer detaljeret mødeliste..."):
             period_str = f"{start_date.strftime('%d-%m-%Y')} til {end_date.strftime('%d-%m-%Y')}"
             try:
