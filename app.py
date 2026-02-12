@@ -34,8 +34,8 @@ TEXTS = {
     "table7_desc": "Viser hvor mange grupper hvert medlem deltager i (ekskl. Gruppeledere).",
     "table8_title": "Tabel 8: Medlemstyper - Fordeling i clusters",
     "table8_desc": "Viser hvordan medlemmer fordeler sig.",
- #   "table9_title": "Tabel 9: Grupper med få møder (<4 i perioden)",
-  #  "table9_desc": "Liste over grupper der har holdt færre end 4 møder i perioden.",
+    "table9_title": "Tabel 9: Grupper med få møder (<4 i perioden)",
+    "table9_desc": "Liste over grupper der har holdt færre end 4 møder i perioden.",
     "table10_title": "Tabel 10: Lukkede grupper i perioden",
     "table10_desc": "Oversigt over grupper der er blevet arkiveret/lukket.",
 }
@@ -951,13 +951,13 @@ def main():
 
     
     # Tabel 9
-   # st.subheader(TEXTS["table9_title"])
-   # st.caption(TEXTS["table9_desc"])
-   # few_meetings = analyze_groups_with_few_meetings(groups_df_active, meetings_p1, start_dt, end_dt)
-   # if not few_meetings.empty:
-   #     st.dataframe(few_meetings, width="stretch")
-   # else:
-   #     st.success("Alle grupper har mindst 4 møder!")
+    st.subheader(TEXTS["table9_title"])
+    st.caption(TEXTS["table9_desc"])
+    few_meetings = analyze_groups_with_few_meetings(groups_df_active, meetings_p1, start_dt, end_dt)
+    if not few_meetings.empty:
+        st.dataframe(few_meetings, width="stretch")
+    else:
+        st.success("Alle grupper har mindst 4 møder!")
     
     # Tabel 10
     st.subheader(TEXTS["table10_title"])
