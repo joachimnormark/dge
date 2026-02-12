@@ -951,13 +951,13 @@ def main():
 
     
     # Tabel 9
-    st.subheader(TEXTS["table9_title"])
-    st.caption(TEXTS["table9_desc"])
-    few_meetings = analyze_groups_with_few_meetings(groups_df_active, meetings_p1, start_dt, end_dt)
-    if not few_meetings.empty:
-        st.dataframe(few_meetings, width="stretch")
-    else:
-        st.success("Alle grupper har mindst 4 møder!")
+   # st.subheader(TEXTS["table9_title"])
+   # st.caption(TEXTS["table9_desc"])
+   # few_meetings = analyze_groups_with_few_meetings(groups_df_active, meetings_p1, start_dt, end_dt)
+   # if not few_meetings.empty:
+   #     st.dataframe(few_meetings, width="stretch")
+   # else:
+   #     st.success("Alle grupper har mindst 4 møder!")
     
     # Tabel 10
     st.subheader(TEXTS["table10_title"])
