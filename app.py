@@ -34,8 +34,8 @@ TEXTS = {
     "table7_desc": "Viser hvor mange grupper hvert medlem deltager i (ekskl. Gruppeledere).",
     "table8_title": "Tabel 8: Medlemstyper - Fordeling i clusters",
     "table8_desc": "Viser hvordan medlemmer fordeler sig.",
-    "table9_title": "Tabel 9: Grupper med få møder (<4 i perioden)",
-    "table9_desc": "Liste over grupper der har holdt færre end 4 møder i perioden.",
+ #   "table9_title": "Tabel 9: Grupper med få møder (<4 i perioden)",
+  #  "table9_desc": "Liste over grupper der har holdt færre end 4 møder i perioden.",
     "table10_title": "Tabel 10: Lukkede grupper i perioden",
     "table10_desc": "Oversigt over grupper der er blevet arkiveret/lukket.",
 }
