@@ -971,12 +971,12 @@ def main():
     # PDF
     st.markdown("---")
     st.header("📥 Download rapport")
-    if st.button("Generer PDF", type="primary"):
+    if st.button("Hent PDF med grafer", type="primary"):
         with st.spinner("Genererer..."):
             period_str = f"{start_date.strftime('%d-%m-%Y')} til {end_date.strftime('%d-%m-%Y')}"
             try:
                 pdf_buffer = generate_pdf_with_charts(all_charts, period_str)
-                st.download_button(label="⬇️ Download PDF", data=pdf_buffer, file_name=f"dge_rapport_{start_date.strftime('%Y%m%d')}.pdf", mime="application/pdf")
+                st.download_button(label="⬇️ Download PDF med grafer", data=pdf_buffer, file_name=f"dge_rapport_{start_date.strftime('%Y%m%d')}.pdf", mime="application/pdf")
                 st.success("✅ PDF klar!")
             except Exception as e:
                 st.error(f"PDF-fejl: {e}")
