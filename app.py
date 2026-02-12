@@ -989,6 +989,7 @@ def main():
                 # meetings_p1 er allerede godkendte møder i main
                 pdf_buf = generate_pdf_details(meetings_p1, groups_df_active, period_str, start_date=start_dt, end_date=end_dt)
                 st.download_button("⬇️ Download PDF med detaljer", data=pdf_buf, file_name=f"DGE_detaljer_{period_str}.pdf", mime="application/pdf")
+                st.success("✅ PDF klar!")
             except Exception as e:
                 st.error(f"Fejl ved generering af detaljer: {e}")
 
