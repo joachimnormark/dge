@@ -982,13 +982,13 @@ def main():
                 st.error(f"PDF-fejl: {e}")
 
     # NY knap: hent detaljer (kun godkendte møder + grupper 0..4)
-    if st.button("Hent detaljer", key="hent_detaljer"):
+    if st.button("Hent detaljeret PDF", key="hent_detaljer"):
         with st.spinner("Genererer detaljeret mødeliste..."):
             period_str = f"{start_date.strftime('%d-%m-%Y')} til {end_date.strftime('%d-%m-%Y')}"
             try:
                 # meetings_p1 er allerede godkendte møder i main
                 pdf_buf = generate_pdf_details(meetings_p1, groups_df_active, period_str, start_date=start_dt, end_date=end_dt)
-                st.download_button("Download detaljer (PDF)", data=pdf_buf, file_name=f"DGE_detaljer_{period_str}.pdf", mime="application/pdf")
+                st.download_button("⬇️ Download PDF med detaljer", data=pdf_buf, file_name=f"DGE_detaljer_{period_str}.pdf", mime="application/pdf")
             except Exception as e:
                 st.error(f"Fejl ved generering af detaljer: {e}")
 
