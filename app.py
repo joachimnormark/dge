@@ -55,8 +55,8 @@ TEXTS = {
     "table8_title": "Tabel 8: Medlemstyper - Fordeling i clusters",
     "table8_desc": "Viser hvordan medlemmer fordeler sig på kategorier.",
     
-    "table9_title": "Tabel 9: Supervisors og deres gruppefordeling",
-    "table9_desc": "Viser hvilke supervisors der har ansvar for hvilke grupper.",
+    "table9_title": "Tabel 9: Vejledere og deres gruppefordeling",
+    "table9_desc": "Viser hvilke vejledere der har ansvar for hvilke grupper.",
     
     "table10_title": "Tabel 10: Lukkede grupper i perioden",
     "table10_desc": "Oversigt over grupper der er blevet arkiveret/lukket i den valgte periode.",
