@@ -1,3 +1,6 @@
+# DGE Mødeaktivitets-analyse v5.0
+# Opdateret: 2026-02-14
+
 streamlit>=1.32.0
 pandas>=2.2.1
 numpy>=1.26.0
