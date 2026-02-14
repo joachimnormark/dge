@@ -213,12 +213,12 @@ def get_group_type_from_meeting(meetings_df, group_df):
     
     df = meetings_df.copy()
     
-    # Merge både gruppetype og supervisor
+    # Merge gruppetype og supervisor
     group_info = group_df[['Gruppenavn', 'Gruppetyper', 'Supervisor']].drop_duplicates()
     df = df.merge(group_info, on='Gruppenavn', how='left')
     df['Gruppetype_std'] = df['Gruppetyper'].apply(standardize_group_type)
     
-    # KRITISK: Filtrer Gruppeledere EFTER merge (de kan være kommet tilbage)
+    # Filtrer Gruppeledere EFTER merge
     df = df[df['Gruppenavn'].astype(str).str.strip().str.lower() != 'gruppeledere'].copy()
     
     return df
@@ -1231,12 +1231,12 @@ def generate_pdf_supervisor_report(supervisor_name, groups_df, meetings_df, peri
 
 st.set_page_config(page_title=TEXTS["app_title"], layout="wide")
 
-# VERSION NUMMER - SYNLIG I APP
-APP_VERSION = "v6.0-DEBUG - 2026-02-14"
+# VERSION NUMMER
+APP_VERSION = "v8.0 - Dubletter giver fejl - 2026-02-14"
 
 def main():
     st.title(TEXTS["app_title"])
-    st.caption(f"Version: {APP_VERSION}")  # Viser versionen øverst
+    st.caption(f"Version: {APP_VERSION}")
     
     # FILE UPLOAD
     st.header(TEXTS["upload_header"])
@@ -1277,6 +1277,24 @@ def main():
     except Exception as e:
         st.error(f"Fejl: {e}")
         return
+    
+    # ========== TJEK FOR DUBLETTER I GROUPS ==========
+    duplicate_groups = groups_df[groups_df.duplicated(subset=['Gruppenavn'], keep=False)]
+    
+    if not duplicate_groups.empty:
+        duplicate_names = duplicate_groups['Gruppenavn'].unique().tolist()
+        
+        st.error("🚨 **FEJL: Der findes grupper med samme navn!**")
+        st.write("Følgende gruppenavne forekommer mere end én gang i datafilen:")
+        
+        for name in duplicate_names:
+            dupes = groups_df[groups_df['Gruppenavn'] == name]
+            st.write(f"\n**'{name}'** (findes {len(dupes)} gange):")
+            st.dataframe(dupes[['Gruppenavn', 'Status', 'Gruppetyper', 'Supervisor', 'Dato for arkivering']])
+        
+        st.warning("⚠️ Ret venligst dine data så hver gruppe kun forekommer én gang, og genindlæs filerne.")
+        st.info("💡 Tip: Hvis en gruppe er både aktiv og inaktiv, behold kun én af rækkerne.")
+        st.stop()  # Stop programmet her
     
     # DATA CLEANING
     if 'Starttidspunkt' in meetings_df.columns:
@@ -1398,26 +1416,19 @@ def main():
             st.metric("Unikke grupper (P2)", meetings_p2['Gruppenavn'].nunique())
     
     # DEBUG INFORMATION
-    with st.expander("🔍 DEBUG: Se filtreringsdetaljer"):
-        st.write("**Gruppeledere-filtrering check:**")
+    with st.expander("🔍 DEBUG: Tjek at tallene er korrekte"):
+        st.write("**Forventede korrekte tal for 2025:**")
+        st.write("- Møder: 219 (uden Gruppeledere)")
+        st.write("- Deltagerdage: 1551")
         
-        # Tjek om der er Gruppeledere i meetings_p1
-        gl_check = meetings_p1[
-            meetings_p1['Gruppenavn'].astype(str).str.strip().str.lower() == 'gruppeledere'
-        ]
+        st.write(f"\n**Faktiske tal:**")
+        st.write(f"- Møder: {len(meetings_p1)}")
+        st.write(f"- Deltagerdage: {meetings_p1['Antal deltagere'].sum()}")
         
-        if len(gl_check) > 0:
-            st.error(f"⚠️ PROBLEM: Der er {len(gl_check)} Gruppeledere-møder i meetings_p1!")
-            st.write(gl_check[['Gruppenavn', 'Starttidspunkt', 'Status', 'Antal deltagere']])
+        if len(meetings_p1) == 219 and meetings_p1['Antal deltagere'].sum() == 1551:
+            st.success("✅ Tallene er nu korrekte!")
         else:
-            st.success("✅ Ingen Gruppeledere-møder fundet i meetings_p1")
-        
-        st.write(f"**Total møder i meetings_p1:** {len(meetings_p1)}")
-        st.write(f"**Total deltagerdage:** {meetings_p1['Antal deltagere'].sum()}")
-        
-        # Vis de første 10 møder
-        st.write("**Første 10 møder i meetings_p1:**")
-        st.dataframe(meetings_p1[['Gruppenavn', 'Starttidspunkt', 'Antal deltagere']].head(10))
+            st.warning("⚠️ Tallene matcher ikke endnu")
     
     st.markdown("---")
     

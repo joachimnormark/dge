@@ -1,4 +1,5 @@
-# DGE Mødeaktivitets-analyse v6.0-DEBUG
+# DGE Mødeaktivitets-analyse v8.0
+# Dubletter i groups giver nu fejlmeddelelse
 # Opdateret: 2026-02-14
 
 streamlit>=1.32.0
