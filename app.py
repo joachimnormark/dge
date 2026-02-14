@@ -1232,7 +1232,7 @@ def generate_pdf_supervisor_report(supervisor_name, groups_df, meetings_df, peri
 st.set_page_config(page_title=TEXTS["app_title"], layout="wide")
 
 # VERSION NUMMER - SYNLIG I APP
-APP_VERSION = "v5.0 - 2026-02-14"
+APP_VERSION = "v6.0-DEBUG - 2026-02-14"
 
 def main():
     st.title(TEXTS["app_title"])
@@ -1396,6 +1396,28 @@ def main():
         st.metric("Unikke grupper (P1)", meetings_p1['Gruppenavn'].nunique())
         if compare_previous_year:
             st.metric("Unikke grupper (P2)", meetings_p2['Gruppenavn'].nunique())
+    
+    # DEBUG INFORMATION
+    with st.expander("🔍 DEBUG: Se filtreringsdetaljer"):
+        st.write("**Gruppeledere-filtrering check:**")
+        
+        # Tjek om der er Gruppeledere i meetings_p1
+        gl_check = meetings_p1[
+            meetings_p1['Gruppenavn'].astype(str).str.strip().str.lower() == 'gruppeledere'
+        ]
+        
+        if len(gl_check) > 0:
+            st.error(f"⚠️ PROBLEM: Der er {len(gl_check)} Gruppeledere-møder i meetings_p1!")
+            st.write(gl_check[['Gruppenavn', 'Starttidspunkt', 'Status', 'Antal deltagere']])
+        else:
+            st.success("✅ Ingen Gruppeledere-møder fundet i meetings_p1")
+        
+        st.write(f"**Total møder i meetings_p1:** {len(meetings_p1)}")
+        st.write(f"**Total deltagerdage:** {meetings_p1['Antal deltagere'].sum()}")
+        
+        # Vis de første 10 møder
+        st.write("**Første 10 møder i meetings_p1:**")
+        st.dataframe(meetings_p1[['Gruppenavn', 'Starttidspunkt', 'Antal deltagere']].head(10))
     
     st.markdown("---")
     

@@ -1,4 +1,4 @@
-# DGE Mødeaktivitets-analyse v5.0
+# DGE Mødeaktivitets-analyse v6.0-DEBUG
 # Opdateret: 2026-02-14
 
 streamlit>=1.32.0
