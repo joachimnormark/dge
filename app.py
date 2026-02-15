@@ -1425,23 +1425,23 @@ def main():
             st.metric("Unikke grupper (P2)", meetings_p2['Gruppenavn'].nunique())
     
     # DEBUG INFORMATION
-    with st.expander("🔍 DEBUG: Tjek at tallene er korrekte"):
-        st.write("**Forventede korrekte tal for 2025:**")
-        st.write("- Møder: 219 (uden Gruppeledere)")
-        st.write("- Deltagerdage: 1551")
+  #  with st.expander("🔍 DEBUG: Tjek at tallene er korrekte"):
+   #     st.write("**Forventede korrekte tal for 2025:**")
+   #     st.write("- Møder: 219 (uden Gruppeledere)")
+    #    st.write("- Deltagerdage: 1551")
         
-        st.write(f"\n**Faktiske tal:**")
-        st.write(f"- Møder: {len(meetings_p1)}")
-        st.write(f"- Deltagerdage: {meetings_p1['Antal deltagere'].sum()}")
+    #    st.write(f"\n**Faktiske tal:**")
+    #    st.write(f"- Møder: {len(meetings_p1)}")
+    #    st.write(f"- Deltagerdage: {meetings_p1['Antal deltagere'].sum()}")
         
-        if len(meetings_p1) == 219 and meetings_p1['Antal deltagere'].sum() == 1551:
-            st.success("✅ Tallene er nu korrekte!")
-        else:
-            st.warning("⚠️ Tallene matcher ikke endnu")
+    #    if len(meetings_p1) == 219 and meetings_p1['Antal deltagere'].sum() == 1551:
+    #        st.success("✅ Tallene er nu korrekte!")
+    #    else:
+    #        st.warning("⚠️ Tallene matcher ikke endnu")
     
-    st.markdown("---")
+  #  st.markdown("---")
     
-    all_charts = []
+ #   all_charts = []
     
     # TABEL 1: MØDESTATISTIK
     st.subheader(TEXTS["table1_title"])
