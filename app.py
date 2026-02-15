@@ -1439,9 +1439,9 @@ def main():
     #    else:
     #        st.warning("⚠️ Tallene matcher ikke endnu")
     
-  #  st.markdown("---")
+    st.markdown("---")
     
- #   all_charts = []
+    all_charts = []
     
     # TABEL 1: MØDESTATISTIK
     st.subheader(TEXTS["table1_title"])
