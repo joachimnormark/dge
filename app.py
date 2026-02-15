@@ -841,6 +841,15 @@ def generate_pdf_details(meetings_df, groups_df, period_str, start_date, end_dat
     
     # Tilføj til groups dataframe
     groups_with_counts = groups_df.copy()
+    
+    # KRITISK: Filtrer grupper der var lukket FØR perioden startede
+    # Disse grupper skal IKKE fremgå i rapporten
+    if 'Dato for arkivering' in groups_with_counts.columns:
+        groups_with_counts = groups_with_counts[
+            groups_with_counts['Dato for arkivering'].isna() |  # Ikke arkiveret
+            (groups_with_counts['Dato for arkivering'] >= start_date)  # Eller arkiveret i/efter perioden
+        ].copy()
+    
     groups_with_counts['Antal_møder'] = groups_with_counts['Gruppenavn'].map(meeting_counts).fillna(0).astype(int)
     groups_with_counts['Gruppetype_std'] = groups_with_counts['Gruppetyper'].apply(standardize_group_type)
     
@@ -1232,7 +1241,7 @@ def generate_pdf_supervisor_report(supervisor_name, groups_df, meetings_df, peri
 st.set_page_config(page_title=TEXTS["app_title"], layout="wide")
 
 # VERSION NUMMER
-APP_VERSION = "v8.0 - Dubletter giver fejl - 2026-02-14"
+APP_VERSION = "v9.0 - Filtrerer grupper lukket før perioden - 2026-02-14"
 
 def main():
     st.title(TEXTS["app_title"])
