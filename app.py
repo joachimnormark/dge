@@ -1045,6 +1045,98 @@ def generate_pdf_details(meetings_df, groups_df, period_str, start_date, end_dat
                 story.append(table)
                 story.append(Spacer(1, 0.3*inch))
     
+    # ========== DEL 4: GRUPPER GRUPPERET EFTER ANTAL MEDLEMMER ==========
+    
+    story.append(PageBreak())
+    story.append(Paragraph("Grupper fordelt efter antal medlemmer", section_style))
+    story.append(Spacer(1, 0.1*inch))
+    
+    # Brug kun grupper der var aktive i perioden (ikke lukket FØR perioden)
+    groups_for_members = groups_df.copy()
+    if 'Dato for arkivering' in groups_for_members.columns:
+        groups_for_members = groups_for_members[
+            groups_for_members['Dato for arkivering'].isna() |
+            (groups_for_members['Dato for arkivering'] >= start_date)
+        ].copy()
+    
+    groups_for_members['Gruppetype_std'] = groups_for_members['Gruppetyper'].apply(standardize_group_type)
+    
+    # Find alle unikke medlemsantal og sortér
+    member_counts = sorted(groups_for_members['Antal medlemmer'].dropna().astype(int).unique())
+    
+    for num_members in member_counts:
+        groups_this_count = groups_for_members[
+            groups_for_members['Antal medlemmer'].astype(int) == num_members
+        ].copy()
+        
+        if groups_this_count.empty:
+            continue
+        
+        # Sorter efter gruppetype, derefter gruppenavn
+        groups_this_count = groups_this_count.sort_values(['Gruppetype_std', 'Gruppenavn'])
+        
+        story.append(Paragraph(
+            f"Grupper med {num_members} {'medlem' if num_members == 1 else 'medlemmer'}",
+            section_style
+        ))
+        story.append(Spacer(1, 0.1*inch))
+        
+        table_data = [['Gruppenavn', 'Vejleder', 'Status', 'Gruppetype']]
+        
+        for _, row in groups_this_count.iterrows():
+            group_name = str(row['Gruppenavn'])[:40]
+            vejleder = str(row.get('Supervisor', '-'))[:25]
+            
+            # Status
+            arkiv_dato = row.get('Dato for arkivering')
+            if pd.notna(arkiv_dato):
+                if start_date <= arkiv_dato <= end_date:
+                    status_text = f"<font color='red'>Lukket {arkiv_dato.strftime('%d-%m-%Y')}</font>"
+                else:
+                    status_text = f"<font color='#DAA520'>Lukket efter perioden {arkiv_dato.strftime('%d-%m-%Y')}</font>"
+            else:
+                status_text = "Aktiv"
+            
+            gruppetype = str(row['Gruppetyper'])[:15]
+            
+            table_data.append([
+                group_name,
+                vejleder,
+                Paragraph(status_text, status_style),
+                gruppetype,
+            ])
+        
+        table = Table(table_data, colWidths=[2.5*inch, 1.6*inch, 2*inch, 1.4*inch])
+        
+        table.setStyle(TableStyle([
+            # Header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2B6CB0')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            # Data
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F7FAFC')]),
+            # Grid
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#2B6CB0')),
+            # Padding
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+        ]))
+        
+        story.append(table)
+        story.append(Spacer(1, 0.3*inch))
+        
+        if len(table_data) > 20:
+            story.append(PageBreak())
+    
     # Byg PDF
     doc.build(story)
     buffer.seek(0)
@@ -1244,7 +1336,7 @@ def generate_pdf_supervisor_report(supervisor_name, groups_df, meetings_df, peri
 st.set_page_config(page_title=TEXTS["app_title"], layout="wide")
 
 # VERSION NUMMER
-APP_VERSION = "v10.0 - Periode-labels, Tabel 4+5 individuelle søjler"
+APP_VERSION = "v11.0 - Gruppestørrelse i PDF detaljer"
 
 def main():
     st.title(TEXTS["app_title"])
