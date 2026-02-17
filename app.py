@@ -1454,13 +1454,13 @@ def main():
         fig, desc = create_comparison_stacked_bar(
             status_p1, status_p2, 'Status_mapped', 'Antal',
             TEXTS["table1_title"], TEXTS["table1_desc"],
-            ordered_categories=['Godkendt', 'Afventer', 'Afholdt u. godk.', 'Afvist', 'Andet']
+            ordered_categories=['Godkendt', 'Afholdt', 'Afventer godk.', 'Afvist', 'Andet']
         )
     else:
         fig, desc = create_stacked_bar_chart(
             status_p1, 'Status_mapped', 'Antal',
             TEXTS["table1_title"], TEXTS["table1_desc"],
-            ordered_categories=['Godkendt', 'Afventer', 'Afholdt u. godk.', 'Afvist', 'Andet']
+            ordered_categories=['Godkendt', 'Afholdt', 'Afventer godk.', 'Afvist', 'Andet']
         )
     
     if fig:
