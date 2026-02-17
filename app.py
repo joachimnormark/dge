@@ -235,11 +235,11 @@ def analyze_meeting_status_by_type(meetings_df):
     status_map = {
         'Godkendt': 'Godkendt',
         'godkendt': 'Godkendt',
-        '-': 'Afholdt',
+        '-': 'Afventer',
         'Afvist': 'Afvist',
         'afvist': 'Afvist',
-        'Afsluttet': 'Afventer godk.',
-        'afsluttet': 'Afventer godk.',
+        'Afsluttet': 'Afholdt u. godk.',
+        'afsluttet': 'Afholdt u. godk.',
     }
     
     df = meetings_df.copy()
