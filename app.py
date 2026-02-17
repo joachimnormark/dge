@@ -47,7 +47,7 @@ TEXTS = {
     "table5_desc": "Viser fordelingen af gruppestørrelser for DGE, Supervision og Junior grupper.",
     
     "table6_title": "Tabel 6: Gruppernes mødeaktivitet",
-    "table6_desc": "Viser hvor mange grupper der har holdt 0, 1, 2, 3... møder i perioden.",
+    "table6_desc": "Viser hvor mange grupper der har holdt 0, 1, 2, 3... godkendte møder i perioden.",
     
     "table7_title": "Tabel 7: Antal grupper medlemmer er medlem af",
     "table7_desc": "Viser hvor mange grupper hvert medlem deltager i (ekskl. Gruppeledere).",
@@ -276,15 +276,17 @@ def analyze_weekday_by_type(meetings_df):
     return result
 
 def analyze_participants_by_type(meetings_df):
-    """Analyser møder fordelt på antal deltagere"""
+    """Analyser møder fordelt på antal deltagere - individuelle søjler 1-14, derefter 15+"""
     if meetings_df is None or meetings_df.empty:
         return pd.DataFrame()
     
-    bins = [0, 4, 7, 10, 13, 999]
-    labels = ['1-4', '5-7', '8-10', '11-13', '14+']
-    
     df = meetings_df.copy()
-    df['Deltagerkategori'] = pd.cut(df['Antal deltagere'], bins=bins, labels=labels, right=True)
+    
+    def categorize(n):
+        n = int(n)
+        return '15+' if n >= 15 else str(n)
+    
+    df['Deltagerkategori'] = df['Antal deltagere'].apply(categorize)
     
     result = df.groupby(['Deltagerkategori', 'Gruppetype_std'], observed=True).size().reset_index(name='Antal')
     result['Deltagerkategori'] = result['Deltagerkategori'].astype(str)
@@ -292,7 +294,7 @@ def analyze_participants_by_type(meetings_df):
     return result
 
 def analyze_group_size_by_type(groups_df, period_start):
-    """Analyser gruppestørrelser"""
+    """Analyser gruppestørrelser - individuelle søjler 1-14, derefter 15+"""
     if groups_df is None or groups_df.empty:
         return pd.DataFrame()
     
@@ -304,10 +306,11 @@ def analyze_group_size_by_type(groups_df, period_start):
     if 'Antal medlemmer' not in df.columns or 'Gruppetyper' not in df.columns:
         return pd.DataFrame()
     
-    bins = [0, 4, 6, 8, 10, 12, 14, 999]
-    labels = ['1-4', '5-6', '7-8', '9-10', '11-12', '13-14', '15+']
+    def categorize(n):
+        n = int(n)
+        return '15+' if n >= 15 else str(n)
     
-    df['Størrelseskategori'] = pd.cut(df['Antal medlemmer'], bins=bins, labels=labels, right=True)
+    df['Størrelseskategori'] = df['Antal medlemmer'].apply(categorize)
     df['Gruppetype_std'] = df['Gruppetyper'].apply(standardize_group_type)
     
     result = df.groupby(['Størrelseskategori', 'Gruppetype_std'], observed=True).size().reset_index(name='Antal')
@@ -515,7 +518,7 @@ def create_stacked_bar_chart(data, x_col, y_col, title, description, ordered_cat
     
     return fig, description
 
-def create_comparison_stacked_bar(data_p1, data_p2, x_col, y_col, title, description, ordered_categories=None):
+def create_comparison_stacked_bar(data_p1, data_p2, x_col, y_col, title, description, ordered_categories=None, label_p1='P1', label_p2='P2'):
     """Lav sammenlignende stacked bar chart"""
     if data_p1.empty:
         return None, description
@@ -545,8 +548,8 @@ def create_comparison_stacked_bar(data_p1, data_p2, x_col, y_col, title, descrip
     
     x_labels = []
     for cat in x_categories:
-        x_labels.append(f"{cat} P1")
-        x_labels.append(f"{cat} P2")
+        x_labels.append(f"{cat} {label_p1}")
+        x_labels.append(f"{cat} {label_p2}")
     
     for gtype in ['DGE', 'Supervision', 'Junior']:
         if gtype not in pivot.columns:
@@ -1241,7 +1244,7 @@ def generate_pdf_supervisor_report(supervisor_name, groups_df, meetings_df, peri
 st.set_page_config(page_title=TEXTS["app_title"], layout="wide")
 
 # VERSION NUMMER
-APP_VERSION = "v9.0 - Filtrerer grupper lukket før perioden - 2026-02-14"
+APP_VERSION = "v10.0 - Periode-labels, Tabel 4+5 individuelle søjler"
 
 def main():
     st.title(TEXTS["app_title"])
@@ -1351,6 +1354,14 @@ def main():
     start_dt = datetime.combine(start_date, datetime.min.time())
     end_dt = datetime.combine(end_date, datetime.max.time())
     
+    # Beregn periode-labels: årstal hvis hele år, ellers korte datoer
+    def make_period_label(sd, ed):
+        if sd.day == 1 and sd.month == 1 and ed.day == 31 and ed.month == 12:
+            return str(sd.year)
+        return f"{sd.strftime('%-d/%-m')}-{ed.strftime('%-d/%-m-%y')}"
+    
+    label_p1 = make_period_label(start_date, end_date)
+    
     # Filtrer aktive grupper
     groups_df_active = groups_df.copy()
     if 'Dato for arkivering' in groups_df_active.columns:
@@ -1365,6 +1376,11 @@ def main():
     if compare_previous_year:
         start_dt_p2 = start_dt - relativedelta(years=1)
         end_dt_p2 = end_dt - relativedelta(years=1)
+        start_date_p2 = (start_dt_p2).date()
+        end_date_p2 = (end_dt_p2).date()
+        label_p2 = make_period_label(start_date_p2, end_date_p2)
+    else:
+        label_p2 = 'P2'
     
     # FILTER MØDER
     meetings_p1_all = meetings_df[
@@ -1410,19 +1426,19 @@ def main():
     col_m1, col_m2, col_m3 = st.columns(3)
     
     with col_m1:
-        st.metric("Antal møder (godkendte, P1)", len(meetings_p1))
+        st.metric(f"Antal møder (godkendte, {label_p1})", len(meetings_p1))
         if compare_previous_year:
-            st.metric("Antal møder (godkendte, P2)", len(meetings_p2))
+            st.metric(f"Antal møder (godkendte, {label_p2})", len(meetings_p2))
     
     with col_m2:
-        st.metric("Deltagerdage (godkendte, P1)", meetings_p1['Antal deltagere'].sum())
+        st.metric(f"Deltagerdage (godkendte, {label_p1})", meetings_p1['Antal deltagere'].sum())
         if compare_previous_year:
-            st.metric("Deltagerdage (godkendte, P2)", meetings_p2['Antal deltagere'].sum())
+            st.metric(f"Deltagerdage (godkendte, {label_p2})", meetings_p2['Antal deltagere'].sum())
     
     with col_m3:
-        st.metric("Unikke grupper (P1)", meetings_p1['Gruppenavn'].nunique())
+        st.metric(f"Unikke grupper ({label_p1})", meetings_p1['Gruppenavn'].nunique())
         if compare_previous_year:
-            st.metric("Unikke grupper (P2)", meetings_p2['Gruppenavn'].nunique())
+            st.metric(f"Unikke grupper ({label_p2})", meetings_p2['Gruppenavn'].nunique())
     
     # DEBUG INFORMATION
   #  with st.expander("🔍 DEBUG: Tjek at tallene er korrekte"):
@@ -1454,7 +1470,8 @@ def main():
         fig, desc = create_comparison_stacked_bar(
             status_p1, status_p2, 'Status_mapped', 'Antal',
             TEXTS["table1_title"], TEXTS["table1_desc"],
-            ordered_categories=['Godkendt', 'Afholdt', 'Afventer godk.', 'Afvist', 'Andet']
+            ordered_categories=['Godkendt', 'Afholdt', 'Afventer godk.', 'Afvist', 'Andet'],
+            label_p1=label_p1, label_p2=label_p2
         )
     else:
         fig, desc = create_stacked_bar_chart(
@@ -1480,7 +1497,8 @@ def main():
         fig, desc = create_comparison_stacked_bar(
             weekday_p1, weekday_p2, 'Ugedag', 'Antal',
             TEXTS["table2_title"], TEXTS["table2_desc"],
-            ordered_categories=weekday_order
+            ordered_categories=weekday_order,
+            label_p1=label_p1, label_p2=label_p2
         )
     else:
         fig, desc = create_stacked_bar_chart(
@@ -1516,14 +1534,15 @@ def main():
     st.caption(TEXTS["table4_desc"])
     
     participants_p1 = analyze_participants_by_type(meetings_p1)
-    participant_order = ['1-4', '5-7', '8-10', '11-13', '14+']
+    participant_order = [str(i) for i in range(1, 15)] + ['15+']
     
     if compare_previous_year:
         participants_p2 = analyze_participants_by_type(meetings_p2)
         fig, desc = create_comparison_stacked_bar(
             participants_p1, participants_p2, 'Deltagerkategori', 'Antal',
             TEXTS["table4_title"], TEXTS["table4_desc"],
-            ordered_categories=participant_order
+            ordered_categories=participant_order,
+            label_p1=label_p1, label_p2=label_p2
         )
     else:
         fig, desc = create_stacked_bar_chart(
@@ -1542,7 +1561,7 @@ def main():
     st.caption(TEXTS["table5_desc"])
     
     size_dist = analyze_group_size_by_type(groups_df_active, start_dt)
-    size_order = ['1-4', '5-6', '7-8', '9-10', '11-12', '13-14', '15+']
+    size_order = [str(i) for i in range(1, 15)] + ['15+']
     
     fig, desc = create_stacked_bar_chart(
         size_dist, 'Størrelseskategori', 'Antal',
