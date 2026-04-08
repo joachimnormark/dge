@@ -1410,7 +1410,7 @@ def main():
     groups_df = filter_gruppeledere(groups_df)
     meetings_df = filter_gruppeledere(meetings_df)
     # DEBUG – se hvad der ligger i kolonnen før split
-    st.write(seats_df['Medlemskaber'].head(20))
+    st.write([repr(x) for x in seats_df['Medlemskaber'].head(20)])
     seats_df = filter_members_gruppeledere(seats_df)
     
     # PERIODE VALG
