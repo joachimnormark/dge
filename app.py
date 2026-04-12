@@ -60,6 +60,9 @@ TEXTS = {
     
     "table10_title": "Tabel 10: Lukkede grupper i perioden",
     "table10_desc": "Oversigt over grupper der er blevet arkiveret/lukket i den valgte periode.",
+    
+    "table11_title": "Tabel 11: Grupper med udelukkende SGE-modul møder",
+    "table11_desc": "Aktive grupper hvor alle godkendte møder i perioden er af typen SGE-modul.",
 }
 
 COLORS = {
@@ -1782,6 +1785,75 @@ def main():
         st.dataframe(closed, use_container_width=True)
     else:
         st.success("Ingen grupper blev lukket!")
+    
+    # TABEL 11: GRUPPER MED UDELUKKENDE SGE-MODUL MØDER
+    st.subheader(TEXTS["table11_title"])
+    st.caption(TEXTS["table11_desc"])
+    
+    # Find aktive grupper
+    active_groups = groups_df[
+        (groups_df['Status'].astype(str).str.strip().str.lower().isin(['aktiv', 'active'])) |
+        (groups_df['Dato for arkivering'].isna())
+    ].copy()
+    
+    # Find alle godkendte møder i perioden
+    if not meetings_p1.empty and 'Mødetype' in meetings_p1.columns:
+        # Tæl mødetyper per gruppe
+        meetings_by_group = meetings_p1.groupby('Gruppenavn').agg({
+            'Mødetype': list,
+            'Mødetitel': list
+        }).reset_index()
+        
+        # Find grupper hvor ALLE godkendte møder er SGE-modul
+        sge_only_groups = []
+        
+        for _, row in meetings_by_group.iterrows():
+            gruppenavn = row['Gruppenavn']
+            mødetyper = row['Mødetype']
+            mødetitler = row['Mødetitel']
+            
+            # Tjek at gruppen er aktiv
+            if gruppenavn not in active_groups['Gruppenavn'].values:
+                continue
+            
+            # Tjek om ALLE møder er SGE-modul
+            all_sge_modul = all(
+                'sge' in str(mt).lower() and 'modul' in str(mt).lower()
+                for mt in mødetyper
+            )
+            
+            if all_sge_modul and len(mødetyper) > 0:
+                # Tæl antal SGE-modul møder
+                antal_sge = len([mt for mt in mødetyper if 'sge' in str(mt).lower() and 'modul' in str(mt).lower()])
+                
+                # Sammel mødetitler (unique)
+                unique_titler = []
+                seen = set()
+                for titel in mødetitler:
+                    if pd.notna(titel) and titel not in seen:
+                        unique_titler.append(str(titel))
+                        seen.add(titel)
+                
+                titler_str = '\n'.join(f"• {titel}" for titel in unique_titler) if unique_titler else '-'
+                
+                sge_only_groups.append({
+                    'Gruppenavn': gruppenavn,
+                    'Antal SGE-modul møder': antal_sge,
+                    'Mødetitler': titler_str
+                })
+        
+        if sge_only_groups:
+            sge_df = pd.DataFrame(sge_only_groups)
+            
+            # Vis som expandable table for bedre læsbarhed
+            for _, group in sge_df.iterrows():
+                with st.expander(f"**{group['Gruppenavn']}** ({group['Antal SGE-modul møder']} møder)"):
+                    st.markdown("**Mødetitler:**")
+                    st.markdown(group['Mødetitler'])
+        else:
+            st.info("Ingen grupper har udelukkende holdt SGE-modul møder i perioden")
+    else:
+        st.warning("Kunne ikke analysere mødetyper - manglende data")
     
     # PDF DOWNLOAD
     st.markdown("---")
